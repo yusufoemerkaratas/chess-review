@@ -1,0 +1,1506 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Satranç Oyun İnceleme</title>
+<meta name="description" content="PGN yükle; Stockfish her hamleyi tarayıcında analiz etsin, daha iyi hamleleri ve sonuçlarını tahtada gör.">
+<meta name="theme-color" content="#1d2420">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="fonts/fonts.css">
+<script src="vendor/chess.min.js"></script>
+<style>
+/* Layout: kulüp masası — solda tahta + değerlendirme çubuğu + grafik, sağda koç kartı, hamle listesi, özet */
+:root {
+  --bg: #e9ece6; --surface: #ffffff; --surface-2: #f3f5f0; --fg: #1c2420; --muted: #5b6861; --line: #d5dcd2;
+  --accent: #46703a; --accent-fg: #ffffff;
+  --sq-light: #ebeccf; --sq-dark: #7a9a58; --sq-hl: rgba(245, 214, 60, .55);
+  --graph-dark: #3a403c; --graph-light: #f2f3ee; --bar-w: #aab4a5; --bar-b: #48514b;
+  --c-brilliant: #1fa9a2; --c-great: #5b8bb5; --c-best: #7fae3c; --c-book: #a88865; --c-excellent: #96bc4b; --c-good: #8aa27a;
+  --c-forced: #8b918d; --c-inaccuracy: #e8b923; --c-mistake: #e3872c; --c-miss: #ef6a5c; --c-blunder: #c9302c;
+  --f-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Inter", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141917; --surface: #1d2420; --surface-2: #242c27; --fg: #e6ebe7; --muted: #95a29a; --line: #313b35;
+  --accent: #8fc16c; --accent-fg: #11170f; --graph-dark: #0f1311; --graph-light: #d9ded8; --bar-w: #c9d0ca; --bar-b: #66706a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #141917; --surface: #1d2420; --surface-2: #242c27; --fg: #e6ebe7; --muted: #95a29a; --line: #313b35;
+  --accent: #8fc16c; --accent-fg: #11170f; --graph-dark: #0f1311; --graph-light: #d9ded8; --bar-w: #c9d0ca; --bar-b: #66706a; color-scheme: dark }
+
+* { box-sizing: border-box }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px) }
+[hidden] { display: none !important }
+html, body { background: var(--bg); color: var(--fg) }
+body { font-family: var(--f-body); font-size: 14px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px 32px }
+h1, h2, h3 { font-family: var(--f-display); margin: 0; text-wrap: balance }
+button, select, textarea { font: inherit; color: inherit }
+button { cursor: pointer }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+
+.top { max-width: 1240px; margin: 0 auto 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px }
+.top h1 { font-size: 22px; letter-spacing: -.01em; display: flex; align-items: center; gap: 10px }
+.top h1 .logo { font-size: 26px; line-height: 1 }
+.players { color: var(--muted); font-size: 13px; min-width: 0; flex: 1 1 260px }
+.players b { color: var(--fg); font-weight: 600 }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 7px 12px; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px }
+.btn:hover { background: var(--surface-2) }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: transparent }
+.btn.primary:hover { filter: brightness(1.07) }
+.btn:disabled { opacity: .45; cursor: default }
+
+.progress { max-width: 1240px; margin: 0 auto 14px; display: flex; align-items: center; gap: 12px; font-size: 12.5px; color: var(--muted) }
+.progress .bar { flex: 1; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden }
+.progress .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .25s }
+
+.app { max-width: 1240px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 600px) minmax(0, 1fr); gap: 20px; align-items: start }
+@media (max-width: 920px) {
+  .app { display: flex; flex-direction: column; gap: 14px; align-items: stretch }
+  .app > .col { display: contents }
+  .o1 { order: 1 } .o2 { order: 2 } .o3 { order: 3 } .o4 { order: 4 } .o5 { order: 5 } .o6 { order: 6 } .o7 { order: 7 } .o8 { order: 8 }
+}
+.col { display: flex; flex-direction: column; gap: 14px; min-width: 0 }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0 }
+.card h2 { font-size: 15px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px }
+.eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600 }
+
+/* Board */
+.board-row { display: flex; gap: 8px; align-items: stretch }
+.evalbar { width: 24px; flex: none; border-radius: 4px; overflow: hidden; position: relative; background: var(--graph-dark); border: 1px solid var(--line) }
+.evalbar .w { position: absolute; left: 0; right: 0; bottom: 0; background: var(--graph-light); transition: height .35s ease }
+.evalbar.flip .w { bottom: auto; top: 0 }
+.evalbar span { position: absolute; left: 0; right: 0; text-align: center; font: 700 9.5px/1 var(--f-mono); padding: 4px 0; z-index: 1 }
+.board-wrap { position: relative; flex: 1; aspect-ratio: 1; max-width: 100%; container-type: inline-size; border-radius: 4px; overflow: hidden; box-shadow: 0 6px 24px rgba(0,0,0,.18) }
+.board { display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); width: 100%; height: 100% }
+.sq { position: relative; display: flex; align-items: center; justify-content: center; user-select: none }
+.sq.l { background: var(--sq-light) } .sq.d { background: var(--sq-dark) }
+.sq.hl::before { content: ""; position: absolute; inset: 0; background: var(--sq-hl) }
+.sq.check::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle, rgba(230,30,30,.85) 0%, rgba(230,30,30,.35) 45%, transparent 72%) }
+.sq .co { position: absolute; font: 700 1.9cqw/1 var(--f-body); pointer-events: none }
+.sq .co.r { left: .5cqw; top: .5cqw } .sq .co.f { right: .6cqw; bottom: .4cqw }
+.sq.l .co { color: var(--sq-dark) } .sq.d .co { color: var(--sq-light) }
+.pc { position: relative; display: block; width: 92%; height: 92%; filter: drop-shadow(0 .25cqw .15cqw rgba(0,0,0,.35)); pointer-events: none }
+.pc.lift { opacity: .25 }
+.pc.ghost { position: fixed; z-index: 30; transform: translate(-50%, -50%); filter: drop-shadow(0 6px 6px rgba(0,0,0,.35)) }
+.sq.hint::before { content: ""; position: absolute; inset: 0; background: rgba(31, 169, 162, .6); animation: pulse 1.2s ease-in-out infinite alternate }
+@keyframes pulse { from { opacity: .45 } to { opacity: 1 } }
+.promo { position: absolute; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 5 }
+.promo-box { background: var(--surface); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,.4) }
+.promo-row { display: flex; gap: 6px }
+.promo-row button { width: 14cqw; height: 14cqw; border: 1px solid var(--line); border-radius: 10px; background: var(--sq-light); padding: 4%; display: flex; align-items: center; justify-content: center }
+.promo-row button:hover { border-color: var(--accent); background: var(--sq-dark) }
+.promo-row .pc { width: 100%; height: 100% }
+.board-wrap { touch-action: none; cursor: pointer }
+.sq.sel::before { content: ""; position: absolute; inset: 0; background: rgba(90, 160, 220, .45) }
+.sq.tg::after { content: ""; position: absolute; width: 28%; height: 28%; border-radius: 50%; background: rgba(20, 40, 30, .32); pointer-events: none }
+.sq.tg.cap::after { width: 88%; height: 88%; background: none; border: .9cqw solid rgba(20, 40, 30, .32) }
+#arrows { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none }
+.badge { position: absolute; width: 5.4cqw; height: 5.4cqw; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font: 700 2.7cqw/1 var(--f-mono); color: #fff; transform: translate(-62%, -38%); box-shadow: 0 .3cqw .8cqw rgba(0,0,0,.35); border: .3cqw solid #fff; pointer-events: none; letter-spacing: -.05em }
+
+.controls { display: flex; gap: 6px; flex-wrap: wrap; align-items: center }
+.controls .btn { min-width: 44px; justify-content: center; font-size: 15px }
+.controls .spacer { flex: 1 }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted) }
+.legend i { display: inline-block; width: 18px; height: 5px; border-radius: 3px; vertical-align: middle; margin-right: 5px }
+
+.varbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: color-mix(in srgb, var(--c-great) 16%, var(--surface)); border: 1px solid color-mix(in srgb, var(--c-great) 45%, var(--line)); padding: 8px 10px; border-radius: 10px; font-size: 13px }
+.varbar b { font-weight: 600 }
+.varbar .grow { flex: 1; min-width: 0 }
+
+#graph { width: 100%; height: 110px; cursor: pointer; border-radius: 8px; overflow: hidden }
+#graph svg { display: block }
+
+/* Coach card */
+.coach-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px }
+.coach-icon { width: 38px; height: 38px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; color: #fff; font: 700 15px/1 var(--f-mono) }
+.coach-title { font-family: var(--f-display); font-size: 18px; font-weight: 700; line-height: 1.2 }
+.coach-sub { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums }
+.coach p { margin: 0 0 8px; max-width: 65ch }
+.coach .sec { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 10px }
+.coach .sec h3 { font-size: 13px; font-family: var(--f-body); font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; justify-content: space-between }
+.line { font-family: var(--f-mono); font-size: 13px; line-height: 1.9; display: flex; flex-wrap: wrap; gap: 0 4px }
+.line .n { color: var(--muted) }
+.line button { border: 0; background: none; padding: 0 3px; border-radius: 4px; font-weight: 700 }
+.line button:hover, .line button.on { background: color-mix(in srgb, var(--accent) 22%, transparent) }
+.hint { font-size: 12px; color: var(--muted); margin: 10px 0 0 }
+.lrow { display: flex; gap: 10px; align-items: baseline; border-top: 1px solid var(--line); padding-top: 6px; margin-top: 6px; min-width: 0 }
+.lrow .ev { font: 700 12px/1 var(--f-mono); padding: 5px 7px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); flex: none; min-width: 56px; text-align: center; font-variant-numeric: tabular-nums }
+.lrow .line { min-width: 0 }
+.vfeed { display: flex; align-items: center; gap: 8px; margin: 0 0 6px }
+.rmsg { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 8px; background: var(--surface-2); margin: 0 0 8px }
+.rmsg.ok { background: color-mix(in srgb, var(--c-best) 20%, var(--surface)) }
+.rmsg.bad { background: color-mix(in srgb, var(--c-mistake) 18%, var(--surface)) }
+.rmsg.meh { background: color-mix(in srgb, var(--c-inaccuracy) 18%, var(--surface)) }
+.rbtns { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 }
+.mrow > .mv { width: calc(100% - 4px) }
+.mv .mt { margin-left: auto; font: 500 10.5px/1 var(--f-body); color: var(--muted); padding-left: 6px; white-space: nowrap }
+.mv.on .mt { color: inherit; opacity: .85 }
+#timebars { margin-top: 12px }
+#timebars svg { display: block; cursor: pointer }
+.tb-cap { margin-bottom: 4px }
+.recent { display: flex; flex-direction: column; gap: 4px; max-height: 190px; overflow-y: auto; margin-top: 6px }
+.recent button { text-align: left; border: 1px solid var(--line); background: var(--surface-2); border-radius: 8px; padding: 6px 10px; font-size: 13px }
+.recent button:hover { border-color: var(--accent) }
+.tstat { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; font-size: 12.5px; color: var(--muted); margin-top: 10px; font-variant-numeric: tabular-nums }
+.tstat b { color: var(--fg) }
+.chip { font: 600 11px/1 var(--f-body); padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface-2) }
+.chip:hover { border-color: var(--accent) }
+.moments { display: flex; flex-direction: column; gap: 4px }
+.moments button { display: flex; align-items: center; gap: 10px; text-align: left; border: 1px solid var(--line); background: var(--surface-2); border-radius: 8px; padding: 6px 10px; font-size: 13px }
+.moments button:hover { border-color: var(--accent) }
+.ico { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; color: #fff; font: 700 9.5px/1 var(--f-mono); flex: none; letter-spacing: -.05em }
+
+/* Move list */
+.moves { max-height: 340px; overflow-y: auto; font-family: var(--f-mono); font-size: 13px; border-radius: 8px; border: 1px solid var(--line) }
+.mrow { display: grid; grid-template-columns: 44px 1fr 1fr; align-items: center }
+.mrow:nth-child(odd) { background: var(--surface-2) }
+.mrow .no { color: var(--muted); padding-left: 10px }
+.mv { display: flex; align-items: center; gap: 6px; border: 0; background: none; padding: 5px 8px; text-align: left; font-weight: 700; border-radius: 6px; margin: 1px 4px 1px 0 }
+.mv:hover { background: color-mix(in srgb, var(--accent) 14%, transparent) }
+.mv.on { background: var(--accent); color: var(--accent-fg) }
+.mv.empty { visibility: hidden }
+
+/* Summary */
+.acc { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px }
+.acc > div { min-width: 0 }
+.acc div { background: var(--surface-2); border-radius: 10px; padding: 10px 12px }
+.acc .v { font: 700 28px/1.1 var(--f-display); font-variant-numeric: tabular-nums }
+.acc .k { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+table.counts { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums }
+table.counts td { padding: 4px 4px; border-top: 1px solid var(--line) }
+table.counts td.num { text-align: center; font-weight: 700; width: 56px }
+table.counts td.lab { display: flex; align-items: center; gap: 8px }
+table.counts th { font-size: 11px; color: var(--muted); font-weight: 600; text-align: center; padding-bottom: 4px }
+
+/* Loader */
+.overlay { position: fixed; inset: 0; background: rgba(10,14,12,.55); display: flex; align-items: flex-start; justify-content: center; z-index: 20;
+  padding: max(40px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); overflow-y: auto }
+.loader { width: min(640px, 100%); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.35) }
+.loader h2 { font-size: 18px }
+.loader p { margin: 0; color: var(--muted); font-size: 13px }
+.loader textarea { width: 100%; min-height: 220px; resize: vertical; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); padding: 10px; font: 12.5px/1.5 var(--f-mono) }
+.loader .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center }
+.loader select { border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); padding: 7px 10px }
+.drop { border: 2px dashed var(--line); border-radius: 10px; padding: 12px; text-align: center; color: var(--muted); font-size: 13px }
+.drop.over { border-color: var(--accent); color: var(--fg) }
+.err { color: var(--c-blunder); font-weight: 600; font-size: 13px }
+.muted { color: var(--muted) }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important } }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="spriteDefs"></defs></svg>
+<header class="top">
+  <h1><span class="logo" aria-hidden="true">♞</span>Oyun İnceleme</h1>
+  <div class="players" id="players"></div>
+  <button class="btn primary" id="openLoader" type="button">PGN yükle</button>
+</header>
+<div class="progress" id="progress"><span id="progText">Motor hazırlanıyor…</span><div class="bar"><i id="progBar"></i></div></div>
+
+<main class="app">
+  <section class="col">
+    <div class="board-row o1">
+      <div class="evalbar" id="evalbar"><div class="w" id="evalW"></div><span id="evalTxt"></span></div>
+      <div class="board-wrap" id="boardWrap">
+        <div class="board" id="board"></div>
+        <svg id="arrows" viewBox="0 0 800 800" aria-hidden="true"></svg>
+        <div id="badges"></div>
+        <div id="promo" class="promo" hidden></div>
+      </div>
+    </div>
+    <div id="varbar" class="varbar o2" hidden></div>
+    <div id="live" class="card o2" hidden></div>
+    <div class="controls o3">
+      <button class="btn" id="bStart" type="button" title="Başa dön (Home)">⏮</button>
+      <button class="btn" id="bPrev" type="button" title="Önceki (←)">◀</button>
+      <button class="btn" id="bNext" type="button" title="Sonraki (→)">▶</button>
+      <button class="btn" id="bEnd" type="button" title="Sona git (End)">⏭</button>
+      <span class="spacer"></span>
+      <button class="btn" id="bFlip" type="button" title="Tahtayı çevir (F)">⇅ Çevir</button>
+    </div>
+    <div class="legend o5">
+      <span><i style="background:#6fae2e"></i>Daha iyi hamle</span>
+      <span><i style="background:#d9412f"></i>Rakibin en iyi cevabı</span>
+      <span><i style="background:#3d7fc4"></i>Varyant / motor önerisi</span>
+      <span>Taşları sürükle: kendi hamleni dene</span>
+    </div>
+    <div class="card o7">
+      <h2><span>Değerlendirme grafiği</span><span class="eyebrow">tıkla, o hamleye git</span></h2>
+      <div id="graph"></div>
+      <div id="timebars" hidden></div>
+    </div>
+  </section>
+
+  <section class="col">
+    <div class="card coach o4" id="coach"></div>
+    <div class="card o6">
+      <h2>Hamleler</h2>
+      <div class="moves" id="moves"></div>
+    </div>
+    <div class="card o8" id="summary"></div>
+  </section>
+</main>
+
+<div class="overlay" id="overlay" hidden>
+  <form class="loader" id="loaderForm">
+    <h2>Oyununu yükle</h2>
+    <p>chess.com'da oyun bitince <b>Paylaş → PGN</b> ile kopyala ya da .pgn dosyasını indir. Buraya yapıştır veya dosyayı sürükle.</p>
+    <textarea id="pgnIn" spellcheck="false" placeholder='[Event "Live Chess"]&#10;[White "..."]&#10;[Black "..."]&#10;&#10;1. e4 e5 2. Nf3 Nc6 ...'></textarea>
+    <div class="drop" id="drop">.pgn dosyasını buraya bırak ya da <label style="text-decoration:underline;cursor:pointer">seç<input type="file" id="fileIn" accept=".pgn,.txt,text/plain" hidden></label></div>
+    <div class="row">
+      <label for="depthSel" class="muted">Analiz derinliği</label>
+      <select id="depthSel">
+        <option value="fast">Hızlı</option>
+        <option value="normal" selected>Dengeli</option>
+        <option value="deep">Derin (yavaş)</option>
+      </select>
+    </div>
+    <div class="err" id="loadErr" hidden></div>
+    <div id="recent"></div>
+    <div class="row">
+      <button class="btn primary" type="submit">Analiz et</button>
+      <button class="btn" type="button" id="sampleBtn">Örnek oyun</button>
+      <span style="flex:1"></span>
+      <button class="btn" type="button" id="closeLoader">Kapat</button>
+    </div>
+  </form>
+</div>
+
+<script>
+'use strict';
+/* Engines in order of preference. Fixed node budgets keep results reproducible:
+   the same game always gets the same review on the same engine. */
+const ENGINES = [
+  { name: 'Stockfish 17.1', wasm: true, timeout: 45000, make: () => new Worker('stockfish-17.1-lite-single-03e3232.js'),
+    budget: { fast: 300000, normal: 1000000, deep: 3000000 } },
+  { name: 'Stockfish 10', timeout: 20000, make: () => new Worker('stockfish.js'),
+    budget: { fast: 200000, normal: 600000, deep: 2000000 } },
+];
+function wasmAllowed() {
+  try { new WebAssembly.Module(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0])); return true; } catch (e) { return false; }
+}
+const BUDGET_LABEL = { fast: 'hızlı', normal: 'dengeli', deep: 'derin' };
+const SAMPLE = `[Event "Paris Opera"]
+[Site "Paris FRA"]
+[Date "1858.??.??"]
+[White "Paul Morphy"]
+[Black "Duke Karl / Count Isouard"]
+[Result "1-0"]
+
+1. e4 e5 2. Nf3 d6 3. d4 Bg4 4. dxe5 Bxf3 5. Qxf3 dxe5 6. Bc4 Nf6 7. Qb3 Qe7
+8. Nc3 c6 9. Bg5 b5 10. Nxb5 cxb5 11. Bxb5+ Nbd7 12. O-O-O Rd8 13. Rxd7 Rxd7
+14. Rd1 Qe6 15. Bxd7+ Nxd7 16. Qb8+ Nxb8 17. Rd8# 1-0`;
+
+const VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+const NAME = { p: 'piyon', n: 'at', b: 'fil', r: 'kale', q: 'vezir', k: 'şah' };
+/* Piece artwork: hand-drawn for this page on a 45×45 grid. {F} fill, {S} outline, {D} detail lines. */
+const PIECE_SVG = {
+  p: `<path d="M13 40h19v-2.5H13z"/><path d="M14.5 37.5c.4-5 2.8-8.6 5.6-10.6h4.8c2.8 2 5.2 5.6 5.6 10.6z"/><path d="M20.6 26.9l.6-5h2.6l.6 5z"/><path d="M17 26.9a5.5 1.6 0 0 1 11 0z"/><circle cx="22.5" cy="16.2" r="5.3"/>`,
+  r: `<path d="M11 40h23v-3H11z"/><path d="M13.5 37l1.8-4.5h14.4l1.8 4.5z"/><path d="M15.5 32.5V17.5h14v15z"/><path d="M13 17.5l2.5-3h14l2.5 3z"/><path d="M12.5 14.5V8.5h4.2V11h3.6V8.5h4.4V11h3.6V8.5h4.2v6z"/><path d="M15.5 17.5h14M15.5 32.5h14" fill="none" stroke="{D}"/>`,
+  n: `<path d="M13 40h22v-2.5H13z"/><path d="M34.5 37.5H15.5c0-5 2-8 5.5-10.5 1.8-1.3 2.5-3 2-5-1.5 1.5-3.5 2.2-5.5 2.5-1 1.2-2.6 2.5-4.4 2-2-.6-2.9-2.4-2.2-4 1.2-3 3.6-5.2 5.4-8 .9-1.5 1.4-3.3 2.4-5L17.5 6l3.8 3C30 9.5 35 15.5 34.5 26z"/><circle cx="17.8" cy="15" r="1.3" fill="{D}" stroke="none"/><path d="M30 13.5c1.6 3.2 2.2 7.5 1.6 12.5" fill="none" stroke="{D}"/>`,
+  b: `<path d="M11 40h23v-2.5H11z"/><path d="M15 37.5c2-2.5 3-5.5 3-8.5-3-2-4.5-5-4.5-8.5 0-5.5 4.5-9.5 9-11.5 4.5 2 9 6 9 11.5 0 3.5-1.5 6.5-4.5 8.5 0 3 1 6 3 8.5z"/><circle cx="22.5" cy="6.2" r="2.4"/><path d="M25.8 14l-4.6 5.6M17.5 29h10" fill="none" stroke="{D}"/>`,
+  q: `<path d="M11 40h23v-2.5H11z"/><path d="M13 37.5c1-4 2.5-6.5 2.5-10L10 14l4.5 8 1.5-12.5 3.5 10.5 3-12 3 12 3.5-10.5 1.5 12.5 4.5-8-5.5 13.5c0 3.5 1.5 6 2.5 10z"/><circle cx="10" cy="13" r="2"/><circle cx="16" cy="8.5" r="2"/><circle cx="22.5" cy="7" r="2"/><circle cx="29" cy="8.5" r="2"/><circle cx="35" cy="13" r="2"/><path d="M15.5 27.5h14M14.5 32.5h16" fill="none" stroke="{D}"/>`,
+  k: `<path d="M22.5 4v10M18.3 8h8.4" fill="none" stroke="{S}" stroke-width="2.4"/><path d="M11 40h23v-2.5H11z"/><path d="M13 37.5c1-3.5 2-6 2.5-9.5-3.2-2-5-5-4.5-8.5.6-4 4.4-6 8-5 1.8.5 3 1.8 3.5 3.5.5-1.7 1.7-3 3.5-3.5 3.6-1 7.4 1 8 5 .5 3.5-1.3 6.5-4.5 8.5.5 3.5 1.5 6 2.5 9.5z"/><path d="M15.5 28h14M14.5 32.5h16" fill="none" stroke="{D}"/>`,
+};
+function buildSprite() {
+  let s = '';
+  for (const col of ['w', 'b']) {
+    const F = col === 'w' ? '#fbfaf4' : '#2e2f2d', St = col === 'w' ? '#1e1f1d' : '#0b0b0b', D = col === 'w' ? '#1e1f1d' : '#d9dbd6';
+    for (const t in PIECE_SVG) {
+      s += `<symbol id="p-${col}${t}" viewBox="0 0 45 45"><g fill="${F}" stroke="${St}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">${PIECE_SVG[t].replace(/\{F\}/g, F).replace(/\{S\}/g, St).replace(/\{D\}/g, D)}</g></symbol>`;
+    }
+  }
+  document.getElementById('spriteDefs').innerHTML = s;
+}
+const pieceSvg = (col, t, cls) => `<svg class="pc${cls ? ' ' + cls : ''}" viewBox="0 0 45 45" aria-hidden="true"><use href="#p-${col}${t}"/></svg>`;
+
+const CLS = {
+  brilliant: { sym: '!!', label: 'Muhteşem' },
+  great: { sym: '!', label: 'Harika' },
+  best: { sym: '★', label: 'En İyi' },
+  book: { sym: '≡', label: 'Teorik' },
+  excellent: { sym: '✓', label: 'Mükemmel' },
+  good: { sym: '+', label: 'İyi' },
+  forced: { sym: '□', label: 'Zorunlu' },
+  inaccuracy: { sym: '?!', label: 'Yanlışlık' },
+  mistake: { sym: '?', label: 'Hata' },
+  miss: { sym: '✕', label: 'Kaçırılan Fırsat' },
+  blunder: { sym: '??', label: 'Büyük Hata' },
+};
+const CLS_ORDER = ['brilliant', 'great', 'best', 'book', 'excellent', 'good', 'forced', 'inaccuracy', 'mistake', 'miss', 'blunder'];
+const BAD = new Set(['inaccuracy', 'mistake', 'miss', 'blunder']);
+const NO_BETTER = new Set(['best', 'great', 'brilliant', 'forced', 'book']);
+const ARROW = { better: '#6fae2e', threat: '#d9412f', plan: '#3d7fc4' };
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const clsColor = c => `var(--c-${c})`;
+const sideName = c => c === 'w' ? 'Beyaz' : 'Siyah';
+const other = c => c === 'w' ? 'b' : 'w';
+
+/* ---------- State ---------- */
+const S = {
+  headers: {}, moves: [], ucis: [], fens: [], term: [], evals: [], cls: [], idx: 0, flipped: false,
+  variation: null, run: 0, done: false, lines: [], liveLines: [], sel: null, targets: [], opening: [], budget: 'normal',
+};
+const liveCache = new Map();
+
+/* ---------- Opening book (lichess chess-openings, CC0) ---------- */
+const OPEN = { named: new Map(), book: new Set() };
+function fnv(s) { let x = 0x811c9dc5; for (let i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 0x01000193) >>> 0; } return x.toString(36); }
+const epdKey = fen => fnv(fen.split(' ').slice(0, 4).join(' '));
+const openReady = fetch('openings.json').then(r => r.ok ? r.json() : null).then(d => {
+  if (!d) return;
+  for (const k in d.n) OPEN.named.set(k, d.n[k]);
+  d.b.split(',').forEach(k => OPEN.book.add(k));
+}).catch(() => { });
+const isBook = fen => OPEN.book.has(epdKey(fen));
+const openingAt = fen => OPEN.named.get(epdKey(fen)) || null;
+
+/* ---------- Position helpers ---------- */
+const xy = sq => [sq.charCodeAt(0) - 97, +sq[1] - 1];
+const toSq = (x, y) => (x < 0 || x > 7 || y < 0 || y > 7) ? null : String.fromCharCode(97 + x) + (y + 1);
+function parseFen(fen) {
+  const P = {};
+  fen.split(' ')[0].split('/').forEach((row, ri) => {
+    let f = 0;
+    for (const ch of row) {
+      if (/\d/.test(ch)) f += +ch;
+      else { P['abcdefgh'[f] + (8 - ri)] = { type: ch.toLowerCase(), color: ch === ch.toUpperCase() ? 'w' : 'b' }; f++; }
+    }
+  });
+  return P;
+}
+function material(fen, color) {
+  const P = parseFen(fen); let s = 0;
+  for (const sq in P) s += (P[sq].color === color ? 1 : -1) * VAL[P[sq].type];
+  return s;
+}
+const pieceOrder = t => t === 'k' ? 100 : VAL[t];
+/* Static exchange evaluation with legal moves only, so pins and checks are respected.
+   Returns what the side to move can net by starting captures on `sq` (never negative). */
+function see(c, sq, depth = 0) {
+  if (depth > 10) return 0;
+  const caps = c.moves({ verbose: true }).filter(m => m.to === sq && m.captured);
+  if (!caps.length) return 0;
+  caps.sort((a, b) => pieceOrder(a.piece) - pieceOrder(b.piece));
+  const m = caps[0];
+  c.move({ from: m.from, to: m.to, promotion: m.promotion });
+  const v = VAL[m.captured] + (m.promotion ? VAL[m.promotion] - 1 : 0) - see(c, sq, depth + 1);
+  c.undo();
+  return Math.max(0, v);
+}
+/* Pieces of `color` the opponent (who is to move in fen) can win material against. */
+function hanging(fen, color) {
+  const c = new Chess(fen);
+  if (c.turn() === color) return [];
+  const P = parseFen(fen), out = [];
+  for (const sq in P) {
+    if (P[sq].color !== color || P[sq].type === 'k') continue;
+    const g = see(c, sq);
+    if (g >= 1) out.push({ sq, type: P[sq].type, gain: g });
+  }
+  return out.sort((a, b) => b.gain - a.gain);
+}
+function nullMoveFen(fen) { const p = fen.split(' '); p[1] = other(p[1]); p[3] = '-'; return p.join(' '); }
+/* A sacrifice: after the move the opponent can win material net of anything we just captured,
+   either on the moved piece's square or on another piece that was safe before the move. */
+function isSacrifice(fenBefore, fenAfter, mv) {
+  const c = new Chess(fenAfter);
+  const capV = mv.captured ? VAL[mv.captured] : 0;
+  if (VAL[mv.promotion || mv.piece] >= 3 && see(c, mv.to) - capV >= 2) return true;
+  if (new Chess(fenBefore).in_check()) return false;
+  const cb = new Chess(nullMoveFen(fenBefore));
+  const P = parseFen(fenAfter);
+  for (const sq in P) {
+    if (sq === mv.to || P[sq].color !== mv.color || VAL[P[sq].type] < 3) continue;
+    const g = see(c, sq);
+    if (g - capV >= 2 && g - see(cb, sq) >= 2) return true;
+  }
+  return false;
+}
+function playLine(fen, ucis, max = 12) {
+  const c = new Chess(fen), out = [];
+  for (const u of (ucis || []).slice(0, max)) {
+    const mv = c.move({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4] || 'q' });
+    if (!mv) break;
+    out.push({ san: mv.san, uci: u, fen: c.fen(), mv });
+  }
+  return out;
+}
+/* Material change for `color` along a line, measured only once captures have stopped,
+   so an exchange is never cut in half. */
+function lineMaterial(startFen, items, color, minPlies = 4, maxPlies = 12) {
+  let k = Math.min(items.length, minPlies);
+  while (k < items.length && k < maxPlies && items[k].mv.captured) k++;
+  const end = k ? items[k - 1].fen : startFen;
+  return material(end, color) - material(startFen, color);
+}
+
+/* ---------- Evaluation math (lichess formulas) ---------- */
+function cpOf(e) {
+  if (!e) return 0;
+  if (e.terminal === 'mate') return e.winner === 'w' ? 100000 : -100000;
+  if (e.terminal === 'draw') return 0;
+  if (e.mate != null) return e.mate > 0 ? 10000 - e.mate * 10 : -10000 - e.mate * 10;
+  return e.cp || 0;
+}
+function wp(cp) {
+  if (cp >= 100000) return 100;
+  if (cp <= -100000) return 0;
+  const c = Math.max(-1000, Math.min(1000, cp));
+  return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * c)) - 1);
+}
+function moveAccuracy(wpBefore, wpAfter) {
+  if (wpAfter >= wpBefore) return 100;
+  const raw = 103.1668100711649 * Math.exp(-0.04354415386753951 * (wpBefore - wpAfter)) - 3.166924740191411;
+  return Math.max(0, Math.min(100, raw + 1));
+}
+function std(a) { const m = a.reduce((x, y) => x + y, 0) / a.length; return Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / a.length); }
+/* lichess game accuracy: average of a volatility-weighted mean and a harmonic mean. */
+function gameAccuracy(startColor) {
+  const wps = [];
+  for (const e of S.evals) { if (!e) break; wps.push(wp(cpOf(e))); }
+  const n = wps.length;
+  if (n < 2) return { w: null, b: null };
+  const ws = Math.min(8, Math.max(2, Math.floor(n / 10)));
+  const windows = [];
+  for (let k = 0; k < ws - 2; k++) windows.push(wps.slice(0, ws));
+  for (let k = 0; k + ws <= n; k++) windows.push(wps.slice(k, k + ws));
+  const per = { w: [], b: [] };
+  for (let k = 0; k < n - 1; k++) {
+    const col = k % 2 === 0 ? startColor : other(startColor);
+    const b = col === 'w' ? wps[k] : 100 - wps[k], a = col === 'w' ? wps[k + 1] : 100 - wps[k + 1];
+    const w = windows[k] ? Math.min(12, Math.max(.5, std(windows[k]))) : .5;
+    per[col].push({ acc: moveAccuracy(b, a), w });
+  }
+  const res = {};
+  for (const col of ['w', 'b']) {
+    const L = per[col];
+    if (!L.length) { res[col] = null; continue; }
+    const weighted = L.reduce((s, x) => s + x.acc * x.w, 0) / L.reduce((s, x) => s + x.w, 0);
+    const harmonic = L.length / L.reduce((s, x) => s + 1 / Math.max(x.acc, .01), 0);
+    res[col] = (weighted + harmonic) / 2;
+  }
+  return res;
+}
+function fmtEval(e, short) {
+  if (!e) return '…';
+  if (e.terminal === 'mate') return e.winner === 'w' ? '1-0' : '0-1';
+  if (e.terminal === 'draw') return '½-½';
+  if (e.mate != null) return (e.mate > 0 ? 'M' : '-M') + Math.abs(e.mate);
+  const v = (e.cp || 0) / 100;
+  return (v > 0 ? '+' : '') + v.toFixed(short ? 1 : 2);
+}
+function terminalOf(c, gameEnd) {
+  if (c.in_checkmate()) return { terminal: 'mate', winner: other(c.turn()), lines: [], pv: [] };
+  if (c.in_stalemate() || c.insufficient_material()) return { terminal: 'draw', lines: [], pv: [] };
+  if (gameEnd && (c.in_threefold_repetition() || c.in_draw())) return { terminal: 'draw', lines: [], pv: [] };
+  return null;
+}
+
+/* ---------- Engine (Stockfish in a Web Worker) ---------- */
+class Engine {
+  constructor(multipv) { this.multipv = multipv; this.w = null; this.onLine = null; this.ready = null; this.pending = null; this.info = null; }
+  send(c) { this.w.postMessage(c); }
+  tryWorker(make, ms) {
+    return new Promise((resolve, reject) => {
+      let w;
+      try { w = make(); } catch (e) { return reject(e); }
+      const t = setTimeout(() => { w.terminate(); reject(new Error('timeout')); }, ms);
+      w.onerror = e => { clearTimeout(t); w.terminate(); reject(e); };
+      w.onmessage = e => { if (String(e.data).includes('uciok')) { clearTimeout(t); resolve(w); } };
+      w.postMessage('uci');
+    });
+  }
+  init() {
+    if (this.ready) return this.ready;
+    this.ready = (async () => {
+      const wasmOk = wasmAllowed();
+      for (const def of ENGINES) {
+        if (def.wasm && !wasmOk) continue;
+        try {
+          const w = await this.tryWorker(def.make, def.timeout);
+          this.w = w; this.info = def;
+          w.onerror = null;
+          w.onmessage = e => this.onLine && this.onLine(String(e.data));
+          this.send('setoption name Hash value 32');
+          this.send('setoption name MultiPV value ' + this.multipv);
+          await this.sync();
+          return true;
+        } catch (e) { /* try the next way of loading */ }
+      }
+      throw new Error('Satranç motoru yüklenemedi.');
+    })();
+    return this.ready;
+  }
+  sync() { return new Promise(r => { this.onLine = l => { if (l === 'readyok') { this.onLine = null; r(); } }; this.send('isready'); }); }
+  /* pos: a UCI "position ..." command; fen: the position it reaches (for score orientation). */
+  analyze(pos, fen, go, onInfo) {
+    this.pending = new Promise(resolve => {
+      const sgn = fen.split(' ')[1] === 'w' ? 1 : -1, lines = {};
+      const pack = best => {
+        const arr = [1, 2, 3].map(k => lines[k]).filter(Boolean).slice(0, this.multipv);
+        const L = arr[0] || { cp: 0, mate: null, pv: [], depth: 0 };
+        return { cp: L.cp, mate: L.mate, pv: L.pv, best: best || L.pv[0], lines: arr, depth: L.depth };
+      };
+      this.onLine = l => {
+        if (l.startsWith('info') && l.includes(' pv ')) {
+          if (/ (lowerbound|upperbound)/.test(l)) return;
+          const sc = l.match(/ score (cp|mate) (-?\d+)/); if (!sc) return;
+          const mp = +((l.match(/ multipv (\d+)/) || [0, 1])[1]);
+          lines[mp] = {
+            depth: +((l.match(/ depth (\d+)/) || [0, 0])[1]),
+            cp: sc[1] === 'cp' ? sgn * +sc[2] : null,
+            mate: sc[1] === 'mate' ? sgn * +sc[2] : null,
+            pv: l.split(' pv ')[1].trim().split(/\s+/),
+          };
+          if (onInfo && mp === 1) onInfo(pack(null));
+        } else if (l.startsWith('bestmove')) {
+          this.onLine = null; this.pending = null;
+          const best = l.split(/\s+/)[1];
+          resolve(pack(best && best !== '(none)' ? best : null));
+        }
+      };
+      this.send(pos);
+      this.send(go);
+    });
+    return this.pending;
+  }
+  async halt() { if (this.pending) { const p = this.pending; this.send('stop'); await p; } }
+}
+const Main = new Engine(2);
+const Live = {
+  eng: new Engine(3), want: null, running: false,
+  set(fen) {
+    this.want = fen;
+    if (!fen) { if (this.eng.pending) this.eng.send('stop'); return; }
+    const hit = liveCache.get(fen);
+    if (hit && hit.final) return;
+    if (!this.running) this.loop();
+    else if (this.cur !== fen && this.eng.pending) this.eng.send('stop');
+  },
+  async loop() {
+    this.running = true;
+    try { await this.eng.init(); } catch (e) { this.running = false; return; }
+    while (this.want) {
+      const fen = this.want, hit = liveCache.get(fen);
+      if (hit && hit.final) break;
+      const term = terminalOf(new Chess(fen), false);
+      if (term) { liveCache.set(fen, { ...term, final: true }); refreshLive(fen); break; }
+      this.cur = fen;
+      const r = await this.eng.analyze('position fen ' + fen, fen, 'go depth 18 movetime 4000', p => { liveCache.set(fen, { ...p, final: false }); refreshLive(fen); });
+      this.cur = null;
+      liveCache.set(fen, { ...r, final: this.want === fen });
+      refreshLive(fen);
+      if (this.want === fen) break;
+    }
+    this.running = false;
+  },
+};
+let liveT = 0, liveTimer = null;
+function refreshLive(fen) {
+  if (!S.variation || current().fen !== fen) return;
+  const run = () => { liveT = Date.now(); liveTimer = null; renderBoard(); renderEval(); renderLiveCard(); };
+  if (Date.now() - liveT > 250) run();
+  else if (!liveTimer) liveTimer = setTimeout(run, 250);
+}
+
+/* ---------- Saved analyses (this browser only) ---------- */
+const Store = {
+  get(k) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } },
+  set(k, v) {
+    for (let t = 0; t < 4; t++) {
+      try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { if (!this.evictOldest()) return false; }
+    }
+    return false;
+  },
+  recent() { const r = this.get('recent'); return Array.isArray(r) ? r : []; },
+  remember(pgn, h) {
+    const r = this.recent().filter(x => x.g !== S.gameKey);
+    r.unshift({ g: S.gameKey, pgn, w: S.names.w, b: S.names.b, date: h.Date || '', result: h.Result || '', ts: Date.now() });
+    while (r.length > 12) this.drop(r.pop().g);
+    this.set('recent', r);
+  },
+  drop(g) { try { Object.keys(localStorage).filter(k => k.startsWith('ev:' + g + ':')).forEach(k => localStorage.removeItem(k)); } catch (e) { } },
+  evictOldest() {
+    const r = this.recent();
+    if (r.length <= 1) return false;
+    this.drop(r.pop().g);
+    try { localStorage.setItem('recent', JSON.stringify(r)); } catch (e) { }
+    return true;
+  },
+};
+const packEval = e => e.terminal ? { t: e.terminal, w: e.winner } : {
+  c: e.cp, m: e.mate, d: e.depth, b: e.best, p: (e.pv || []).slice(0, 16).join(' '),
+  l: (e.lines || []).map(L => [L.cp, L.mate, (L.pv || []).slice(0, 16).join(' '), L.depth]),
+};
+const unpackEval = o => o.t ? { terminal: o.t, winner: o.w, lines: [], pv: [] } : {
+  cp: o.c, mate: o.m, depth: o.d, best: o.b, pv: o.p ? o.p.split(' ') : [],
+  lines: (o.l || []).map(a => ({ cp: a[0], mate: a[1], pv: a[2] ? a[2].split(' ') : [], depth: a[3] })),
+};
+
+/* ---------- Clock data from chess.com / lichess PGN comments ---------- */
+function timeInfo(headers, clocks, n) {
+  const known = clocks.filter(x => x != null).length;
+  if (!known || known < n / 2) return null;
+  const tc = (headers.TimeControl || '').match(/^(\d+)(?:\+(\d+(?:\.\d+)?))?$/);
+  const base = tc ? +tc[1] : null, inc = tc && tc[2] ? +tc[2] : 0;
+  const spent = [];
+  for (let i = 0; i < n; i++) {
+    const prev = i >= 2 ? clocks[i - 2] : base;
+    spent.push(clocks[i] == null || prev == null ? null : Math.max(0, prev - clocks[i] + inc));
+  }
+  return { base, inc, clocks, spent };
+}
+function fmtSec(s) { if (s == null) return ''; if (s < 10) return s.toFixed(1) + ' sn'; if (s < 60) return Math.round(s) + ' sn'; return fmtClock(s); }
+function fmtClock(s) {
+  s = Math.max(0, Math.round(s));
+  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+  return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0');
+}
+function avgSpent(color) {
+  if (!S.time) return null;
+  const a = S.time.spent.filter((x, i) => x != null && S.moves[i].color === color);
+  return a.length ? a.reduce((p, q) => p + q, 0) / a.length : null;
+}
+
+/* ---------- PGN loading ---------- */
+function parsePgn(text) {
+  text = text.replace(/\r/g, '').trim();
+  text = text.split(/\n\s*\n(?=\s*\[Event )/)[0];
+  const headers = {};
+  text.replace(/^\s*\[(\w+)\s+"((?:[^"\\]|\\.)*)"\s*\]\s*$/gm, (_, k, v) => { headers[k] = v.replace(/\\"/g, '"'); return ''; });
+  let body = text.replace(/^\s*\[[^\]\n]*\]\s*$/gm, ' ');
+  const comments = [];
+  body = body.replace(/\{([^}]*)\}/g, (_, c) => { comments.push(c); return ` {${comments.length - 1}} `; }).replace(/;[^\n]*/g, ' ');
+  let prev; do { prev = body; body = body.replace(/\([^()]*\)/g, ' '); } while (body !== prev);
+  body = body.replace(/\$\d+/g, ' ').replace(/\d+\s*\.(\s*\.\.)?(\.\.)?/g, ' ');
+  const tokens = body.split(/\s+/).map(t => t.replace(/[!?]+$/, '')).filter(t => t && !/^(1-0|0-1|1\/2-1\/2|½-½|\*)$/.test(t));
+  const startFen = headers.FEN || new Chess().fen();
+  const c = new Chess();
+  if (!c.load(startFen)) throw new Error('PGN içindeki FEN başlığı geçersiz.');
+  const moves = [], fens = [c.fen()], ucis = [], clocks = [];
+  for (const raw of tokens) {
+    const cm = raw.match(/^\{(\d+)\}$/);
+    if (cm) {
+      const k = comments[+cm[1]].match(/\[%clk\s+(\d+):(\d+):(\d+(?:\.\d+)?)\]/);
+      if (k && moves.length) clocks[moves.length - 1] = +k[1] * 3600 + +k[2] * 60 + +k[3];
+      continue;
+    }
+    const tok = raw.replace(/^0-0-0/, 'O-O-O').replace(/^0-0/, 'O-O');
+    const mv = c.move(tok, { sloppy: true });
+    if (!mv) throw new Error(`Hamle okunamadı: "${raw}" (${Math.floor(moves.length / 2) + 1}. hamle civarı). PGN'i kontrol et.`);
+    moves.push(mv); fens.push(c.fen()); ucis.push(mv.from + mv.to + (mv.promotion || ''));
+  }
+  if (!moves.length) throw new Error('PGN içinde hamle bulunamadı.');
+  // Only the final position can end the game; chess.js tracks repetition across the whole history here.
+  const term = fens.map(() => null);
+  term[fens.length - 1] = terminalOf(c, true);
+  for (let i = 0; i < moves.length; i++) if (clocks[i] === undefined) clocks[i] = null;
+  return { headers, moves, fens, ucis, term, clocks };
+}
+
+function loadGame(text, budget) {
+  const g = parsePgn(text);
+  S.run++;
+  Object.assign(S, {
+    headers: g.headers, moves: g.moves, fens: g.fens, ucis: g.ucis, term: g.term, time: timeInfo(g.headers, g.clocks, g.moves.length),
+    flipped: S.retry ? S.retry.prevFlip : S.flipped,
+    evals: [], cls: [], idx: 0, variation: null, retry: null, promo: null, done: false, sel: null, targets: [], budget: budget || S.budget,
+  });
+  S.gameKey = fnv(g.fens.join('|'));
+  S.fenIdx = new Map(); g.fens.forEach((f, i) => { if (!S.fenIdx.has(f)) S.fenIdx.set(f, i); });
+  S.names = { w: g.headers.White || 'Beyaz', b: g.headers.Black || 'Siyah' };
+  Live.set(null);
+  Store.remember(text, g.headers);
+  openReady.then(() => { S.opening = S.fens.map(openingAt); renderPlayers(); if (S.idx === 0) renderCoach(); });
+  renderAll();
+  analyzeAll(S.run);
+}
+function gameOpening() {
+  let name = null;
+  (S.opening || []).forEach(n => { if (n) name = n; });
+  if (name) return name.replace(/^[A-E]\d\d /, '');
+  const h = S.headers;
+  if (h.Opening) return h.Opening;
+  if (h.ECOUrl) return decodeURIComponent(h.ECOUrl.split('/').pop() || '').replace(/-/g, ' ');
+  return '';
+}
+
+/* ---------- Analysis loop ---------- */
+async function analyzeAll(run) {
+  setProgress(0, 'Motor hazırlanıyor…');
+  try { await Main.init(); } catch (e) { setProgress(0, e.message + ' İnternet bağlantını kontrol edip sayfayı yenile.'); return; }
+  await Main.halt();
+  await openReady;
+  if (run !== S.run) return;
+  const cacheKey = `ev:${S.gameKey}:${S.budget}:${Main.info.name}`;
+  const cached = Store.get(cacheKey);
+  if (Array.isArray(cached) && cached.length === S.fens.length) {
+    S.evals = cached.map(unpackEval);
+    for (let i = 0; i < S.moves.length; i++) S.cls[i] = classifyMain(i);
+    S.done = true;
+    setProgress(1, `Kayıtlı analiz yüklendi · ${S.moves.length} yarım hamle · ${BUDGET_LABEL[S.budget]} ayar · ${Main.info.name}`);
+    renderAll();
+    return;
+  }
+  Main.send('ucinewgame'); await Main.sync();
+  if (run !== S.run) return;
+  const nodes = Main.info.budget[S.budget] || Main.info.budget.normal;
+  const n = S.fens.length;
+  for (let i = 0; i < n; i++) {
+    if (run !== S.run) return;
+    setProgress(i / n, `Analiz ediliyor: ${i}/${n - 1} yarım hamle · ${Main.info.name}`);
+    let e = S.term[i];
+    if (!e) {
+      const pos = `position fen ${S.fens[0]}` + (i ? ' moves ' + S.ucis.slice(0, i).join(' ') : '');
+      e = await Main.analyze(pos, S.fens[i], `go nodes ${nodes}`);
+      if (run !== S.run) return;
+    }
+    S.evals[i] = e;
+    if (i > 0) S.cls[i - 1] = classifyMain(i - 1);
+    renderLive(i);
+  }
+  S.done = true;
+  Store.set(cacheKey, S.evals.map(packEval));
+  setProgress(1, `Analiz tamamlandı · ${n - 1} yarım hamle · ${BUDGET_LABEL[S.budget]} ayar · ${Main.info.name}`);
+  renderAll();
+}
+
+function classifyMain(i) {
+  return classify({
+    fenBefore: S.fens[i], fenAfter: S.fens[i + 1], mv: S.moves[i], before: S.evals[i], after: S.evals[i + 1],
+    prevMove: S.moves[i - 1], prevCls: S.cls[i - 1], allowBook: true,
+  });
+}
+/* Mate state from the mover's side: 1 = mover is mating, -1 = mover is being mated, 0 = no forced mate. */
+function mateSide(e, pov) {
+  if (!e) return 0;
+  if (e.terminal === 'mate') return (e.winner === 'w' ? 1 : -1) * pov;
+  if (e.mate != null && e.mate !== 0) return Math.sign(e.mate) * pov;
+  return 0;
+}
+function classify({ fenBefore, fenAfter, mv, before, after, prevMove, prevCls, allowBook }) {
+  const pov = mv.color === 'w' ? 1 : -1;
+  const wpB = wp(pov * cpOf(before)), wpA = wp(pov * cpOf(after));
+  const uci = mv.from + mv.to + (mv.promotion || '');
+  const isBest = !!before.best && (uci === before.best || (!mv.promotion && uci === before.best.slice(0, 4)));
+  // Two separate searches never agree exactly; the engine's own first choice loses nothing.
+  const drop = isBest || after.terminal === 'mate' ? 0 : Math.max(0, wpB - wpA);
+  let c, tag = null;
+  if (isBest || after.terminal === 'mate') c = 'best';
+  else if (drop < 2) c = 'excellent';
+  else if (drop < 5) c = 'good';
+  else if (drop < 10) c = 'inaccuracy';
+  else if (drop < 20) c = 'mistake';
+  else c = 'blunder';
+
+  // lichess-style mate rules: losing a forced mate or walking into one is judged by how much is left.
+  const mB = mateSide(before, pov), mA = mateSide(after, pov);
+  if (!isBest && mB === 1 && mA !== 1) {
+    const cpA = mA === -1 ? -10000 : pov * cpOf(after);
+    c = cpA > 999 ? 'inaccuracy' : cpA > 700 ? 'mistake' : 'blunder'; tag = 'mateLost';
+  } else if (!isBest && mB !== -1 && mA === -1) {
+    const cpB = mB === 1 ? 10000 : pov * cpOf(before);
+    c = cpB < -999 ? 'inaccuracy' : cpB < -700 ? 'mistake' : 'blunder'; tag = 'mateCreated';
+  }
+
+  const recapture = prevMove && prevMove.captured && mv.to === prevMove.to;
+  if (c === 'best' && before.lines && before.lines[1] && !recapture && after.terminal !== 'mate') {
+    const wp2 = wp(pov * cpOf(before.lines[1]));
+    if (wpB - wp2 >= 15 && wpA >= 40) c = 'great';
+  }
+  if ((c === 'best' || c === 'great') && (wpB < 95 || mA === 1) && wpA >= 50 && isSacrifice(fenBefore, fenAfter, mv)) c = 'brilliant';
+  // Miss: the opponent just erred and this move let the chance slip without losing the game outright.
+  if ((c === 'mistake' || c === 'blunder') && !tag && prevCls && ['mistake', 'blunder', 'miss'].includes(prevCls.c) && wpA >= 35) c = 'miss';
+  const book = allowBook && isBook(fenAfter) && !['mistake', 'blunder'].includes(c) && !tag;
+  if (book && c !== 'brilliant') c = 'book';
+  if (new Chess(fenBefore).moves().length === 1) c = 'forced';
+  return { c, tag, wpB, wpA, drop, acc: moveAccuracy(wpB, isBest ? wpB : wpA), opening: book ? openingAt(fenAfter) : null };
+}
+
+/* ---------- Explanations ---------- */
+function startFenNo(fen) { const p = fen.split(' '); return { turn: p[1], no: +p[5] || 1 }; }
+function moveLabel(i) { const m = S.moves[i]; const { no, turn } = startFenNo(S.fens[i]); return `${no}${turn === 'w' ? '.' : '…'} ${m.san}`; }
+function regLine(startFen, items, title) { S.lines.push({ startFen, items, title }); return S.lines.length - 1; }
+function lineHtml(L, attr, k) {
+  let { no, turn } = startFenNo(L.startFen), out = '';
+  L.items.forEach((it, j) => {
+    if (turn === 'w') out += `<span class="n">${no}.</span>`;
+    else if (j === 0) out += `<span class="n">${no}…</span>`;
+    out += `<button type="button" ${attr}="${k}" data-step="${j + 1}">${esc(it.san)}</button>`;
+    if (turn === 'b') no++;
+    turn = other(turn);
+  });
+  return `<div class="line">${out}</div>`;
+}
+const pieceAt = (sq, t) => `${sq} karesindeki ${NAME[t]}`;
+
+function explain(i) {
+  const m = S.moves[i], before = S.evals[i], after = S.evals[i + 1], k = S.cls[i];
+  const me = sideName(m.color), opp = sideName(other(m.color));
+  const pov = m.color === 'w' ? 1 : -1;
+  const out = [], say = [];
+
+  if (k.c === 'book') say.push(`Teorik açılış hamlesi${k.opening ? `: <b>${esc(k.opening.replace(/^[A-E]\d\d /, ''))}</b>` : ''}.`);
+  if (m.flags.includes('k') || m.flags.includes('q')) say.push(`${me} rok yaptı; şah güvenceye alındı ve kale oyuna girdi.`);
+  if (m.captured) say.push(`Alınan taş: ${NAME[m.captured]} (${m.to}).`);
+  if (m.promotion) say.push(`Piyon terfi etti: ${NAME[m.promotion]}.`);
+  if (after.terminal === 'mate') say.push('<b>Şah mat!</b> Oyun bu hamleyle bitti.');
+  else if (after.terminal === 'draw') say.push('Bu hamleyle oyun berabere bitti.');
+  else if (m.san.includes('+')) say.push('Şah çekildi.');
+
+  if (k.c === 'brilliant') say.push(`Bu bir taş fedası: rakip materyal kazanabilir görünüyor, ama motor bu hamleyi en iyi buluyor; feda karşılığında ${me} oyunu ele geçiriyor.`);
+  if (k.c === 'great' && before.lines[1]) {
+    const alt = playLine(S.fens[i], before.lines[1].pv, 1)[0];
+    if (alt) say.push(`Bu pozisyonda tek güçlü devam buydu. İkinci en iyi hamle (${esc(alt.san)}) değerlendirmeyi ${fmtEval(before.lines[1])} seviyesine düşürüyordu.`);
+  }
+  if (k.c === 'forced') say.push('Başka yasal hamle yoktu.');
+  if (k.c === 'miss') say.push(`${opp} bir önceki hamlede hata yapmıştı; bu hamle o hatayı cezalandırma fırsatını kaçırdı.`);
+  if (k.tag === 'mateLost') say.push(`<b>Zorlayıcı mat kaçtı.</b> Önceki pozisyonda ${me} ${Math.abs(before.mate)} hamlede mat edebiliyordu.`);
+
+  const reply = after.terminal ? [] : playLine(S.fens[i + 1], after.pv, 12);
+  if (!after.terminal) {
+    const mA = mateSide(after, pov);
+    if (mA === -1) say.push(`<b>${k.tag === 'mateCreated' ? 'Artık mat kaçınılmaz: ' : ''}${opp} ${Math.abs(after.mate)} hamlede mat ediyor.</b>`);
+    else if (mA === 1 && k.tag !== 'mateLost') say.push(`${me} mat yolunda: ${Math.abs(after.mate)} hamlede zorlayıcı mat var.`);
+    if (BAD.has(k.c) || k.c === 'good') {
+      const r0 = reply[0];
+      if (r0) {
+        if (r0.mv.captured) say.push(`${opp} için en iyi cevap <b>${esc(r0.san)}</b>: ${pieceAt(r0.mv.to, r0.mv.captured)} alınıyor.`);
+        else if (r0.san.includes('+')) say.push(`${opp} için en iyi cevap <b>${esc(r0.san)}</b>, şah çekerek inisiyatifi alıyor.`);
+        else say.push(`${opp} için en iyi cevap <b>${esc(r0.san)}</b>.`);
+      }
+      const hang = BAD.has(k.c) ? hanging(S.fens[i + 1], m.color).filter(h => !(r0 && r0.mv.to === h.sq)) : [];
+      if (hang.length) say.push(`Dikkat: ${pieceAt(hang[0].sq, hang[0].type)} alınabilir durumda (rakip yaklaşık ${hang[0].gain} puan kazanır).`);
+      const loss = reply.length ? -lineMaterial(S.fens[i + 1], reply, m.color) : 0;
+      if (loss >= 2 && mA !== -1) say.push(`Motorun devam varyantında taş alışverişi bittiğinde ${me} yaklaşık <b>${loss} puan</b> materyal kaybetmiş oluyor.`);
+      else if (BAD.has(k.c) && mA === 0 && !hang.length && !(r0 && r0.mv.captured)) say.push('Doğrudan taş kaybı yok; ama pozisyon zayıfladı (taş aktivitesi, şah güvenliği veya piyon yapısı açısından).');
+    }
+  }
+  const sp = S.time ? S.time.spent[i] : null;
+  if (sp != null && BAD.has(k.c)) {
+    const left = S.time.clocks[i], avg = avgSpent(m.color);
+    if (S.time.base && left != null && left < S.time.base * 0.1) say.push(`Zaman baskısı vardı: hamleden sonra saatte ${fmtClock(left)} kalmıştı.`);
+    else if (sp < 5) say.push(`Bu hamle ${fmtSec(sp)} içinde oynandı; acele kaynaklı bir hata olabilir.`);
+    else if (sp >= 30 && avg && sp > 3 * avg) say.push(`Bu hamleye ${fmtSec(sp)} harcandı (ortalamanın ${Math.round(sp / avg)} katı); uzun düşünülmesine rağmen hesap yanlış çıktı.`);
+  }
+  if (say.length) out.push(`<p>${say.join(' ')}</p>`);
+  if (BAD.has(k.c)) out.push(`<div class="rbtns"><button class="btn" type="button" data-retryone="${i}">↺ Bu pozisyonda tekrar dene</button></div>`);
+
+  const uci = m.from + m.to + (m.promotion || '');
+  if (before.best && !NO_BETTER.has(k.c) && uci !== before.best) {
+    const bl = playLine(S.fens[i], before.pv, 12), b0 = bl[0];
+    if (b0) {
+      const why = [], mB = mateSide(before, pov);
+      if (mB === 1) why.push(`<b>${esc(b0.san)}</b> ile ${Math.abs(before.mate)} hamlede mat vardı!`);
+      else if (b0.mv.captured) why.push(`<b>${esc(b0.san)}</b> ile ${pieceAt(b0.mv.to, b0.mv.captured)} alınabilirdi.`);
+      else if (b0.san.includes('+')) why.push(`<b>${esc(b0.san)}</b> şah çekerek baskı kuruyordu.`);
+      else why.push(`Daha iyisi <b>${esc(b0.san)}</b> idi.`);
+      if (mB !== 1) {
+        const played = [{ san: m.san, fen: S.fens[i + 1], mv: m }, ...reply];
+        const diff = lineMaterial(S.fens[i], bl, m.color) - lineMaterial(S.fens[i], played, m.color);
+        if (diff >= 2) why.push(`Bu varyant, oynanan hamleye göre yaklaşık ${diff} puan daha fazla materyal bırakıyordu.`);
+      }
+      why.push(`Değerlendirme ${fmtEval(before)} olurdu; oynanan hamleden sonra ${fmtEval(after)}.`);
+      const lk = regLine(S.fens[i], bl, `Daha iyisi: ${b0.san}`);
+      out.push(`<div class="sec"><h3><span style="color:${ARROW.better}">● Daha iyi hamle</span><button class="chip" type="button" data-play="${lk}">Tahtada oynat ▶</button></h3><p>${why.join(' ')}</p>${lineHtml(S.lines[lk], 'data-line', lk)}</div>`);
+    }
+  }
+  if (reply.length) {
+    const lk = regLine(S.fens[i + 1], reply, 'Oynanan hamleden sonra en iyi devam');
+    const title = BAD.has(k.c) ? `<span style="color:${ARROW.threat}">● Bu hamle neye sebep oldu</span>` : `<span style="color:${ARROW.plan}">● Beklenen devam</span>`;
+    out.push(`<div class="sec"><h3>${title}<button class="chip" type="button" data-play="${lk}">Tahtada oynat ▶</button></h3>${lineHtml(S.lines[lk], 'data-line', lk)}</div>`);
+  }
+  out.push(`<p class="hint">İpucu: taşları sürükleyerek ya da tıklayarak bu pozisyonda kendi hamleni deneyebilirsin.</p>`);
+  return out.join('');
+}
+
+/* ---------- Rendering ---------- */
+function current() {
+  const R = S.retry;
+  if (R) {
+    if (R.tryFen) return { fen: R.tryFen, last: R.tryMv, inVar: false, retry: true };
+    return { fen: S.fens[R.i], last: R.i ? S.moves[R.i - 1] : null, inVar: false, retry: true };
+  }
+  const V = S.variation;
+  if (V) {
+    const fen = V.idx === 0 ? V.startFen : V.items[V.idx - 1].fen;
+    return { fen, last: V.idx === 0 ? null : V.items[V.idx - 1].mv, inVar: true };
+  }
+  return { fen: S.fens[S.idx], last: S.idx > 0 ? S.moves[S.idx - 1] : null, inVar: false };
+}
+function evalOf(fen) {
+  const i = S.fenIdx && S.fenIdx.get(fen);
+  if (i != null && S.evals[i]) return S.evals[i];
+  return liveCache.get(fen) || null;
+}
+function center(sq) {
+  const [x, y] = xy(sq);
+  const col = S.flipped ? 7 - x : x, row = S.flipped ? y : 7 - y;
+  return [col * 100 + 50, row * 100 + 50];
+}
+function arrow(from, to, color, op = .85) {
+  const [x1, y1] = center(from), [x2, y2] = center(to);
+  const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L, px = -uy, py = ux;
+  const w = 10, hw = 26, hl = 34;
+  const sx = x1 + ux * 18, sy = y1 + uy * 18, tx = x2 - ux * 8, ty = y2 - uy * 8, bx = tx - ux * hl, by = ty - uy * hl;
+  const p = [[sx + px * w, sy + py * w], [bx + px * w, by + py * w], [bx + px * hw, by + py * hw], [tx, ty], [bx - px * hw, by - py * hw], [bx - px * w, by - py * w], [sx - px * w, sy - py * w]];
+  return `<polygon points="${p.map(q => q.map(v => v.toFixed(1)).join(',')).join(' ')}" fill="${color}" fill-opacity="${op}"/>`;
+}
+function badge(sq, c) {
+  const [cx, cy] = center(sq);
+  const left = Math.min((cx + 50) / 8, 97.2), top = Math.max((cy - 50) / 8, 2.8);
+  return `<div class="badge" style="left:${left}%;top:${top}%;background:${clsColor(c)}" title="${CLS[c].label}">${CLS[c].sym}</div>`;
+}
+/* Classification of the move that reached the variation's current position, once both sides are evaluated. */
+function variationMoveCls() {
+  const V = S.variation;
+  if (!V || V.idx === 0) return null;
+  const it = V.items[V.idx - 1];
+  if (it.cls) return it.cls;
+  const fb = V.idx === 1 ? V.startFen : V.items[V.idx - 2].fen;
+  const eb = evalOf(fb), ea = evalOf(it.fen);
+  if (!eb || !ea || (eb.depth != null && eb.depth < 10 && !eb.terminal) || (ea.depth != null && ea.depth < 10 && !ea.terminal)) return null;
+  const k = classify({ fenBefore: fb, fenAfter: it.fen, mv: it.mv, before: eb, after: ea, allowBook: true });
+  if ((eb.final !== false) && (ea.final !== false)) it.cls = k;
+  return k;
+}
+
+function renderBoard() {
+  const { fen, last, inVar, retry } = current();
+  const P = parseFen(fen), c = new Chess(fen);
+  const hintSq = retry && S.retry.hint && !S.retry.solved && S.evals[S.retry.i] ? S.evals[S.retry.i].best.slice(0, 2) : null;
+  let kingSq = null;
+  if (c.in_check()) for (const sq in P) if (P[sq].type === 'k' && P[sq].color === c.turn()) kingSq = sq;
+  let html = '';
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+    const x = S.flipped ? 7 - f : f, y = S.flipped ? r : 7 - r, sq = toSq(x, y);
+    const cls = ['sq', (x + y) % 2 === 1 ? 'l' : 'd'];
+    if (last && (sq === last.from || sq === last.to)) cls.push('hl');
+    if (sq === kingSq) cls.push('check');
+    if (sq === S.sel) cls.push('sel');
+    if (sq === hintSq) cls.push('hint');
+    if (S.targets.includes(sq)) cls.push(P[sq] ? 'tg cap' : 'tg');
+    let inner = '';
+    if (f === 0) inner += `<span class="co r">${y + 1}</span>`;
+    if (r === 7) inner += `<span class="co f">${'abcdefgh'[x]}</span>`;
+    const pc = P[sq];
+    if (pc) inner += pieceSvg(pc.color, pc.type, drag.lifted && sq === drag.from ? 'lift' : '');
+    html += `<div class="${cls.join(' ')}" data-sq="${sq}">${inner}</div>`;
+  }
+  $('#board').innerHTML = html;
+
+  let arrows = '', badges = '';
+  if (retry) {
+    const R = S.retry;
+    if (R.solved && R.tryMv && R.msg && R.msg.c) badges = badge(R.tryMv.to, R.msg.c);
+  } else if (!inVar && S.idx > 0) {
+    const i = S.idx - 1, k = S.cls[i], before = S.evals[i], after = S.evals[S.idx];
+    if (k && before && before.best && !NO_BETTER.has(k.c)) arrows += arrow(before.best.slice(0, 2), before.best.slice(2, 4), ARROW.better);
+    if (k && BAD.has(k.c) && after && after.best && !after.terminal) arrows += arrow(after.best.slice(0, 2), after.best.slice(2, 4), ARROW.threat, .75);
+    if (k) badges = badge(S.moves[i].to, k.c);
+  } else if (inVar) {
+    const V = S.variation, nx = V.items[V.idx], le = evalOf(fen);
+    if (nx) arrows += arrow(nx.uci.slice(0, 2), nx.uci.slice(2, 4), ARROW.plan, .7);
+    else if (le && le.best && !le.terminal) arrows += arrow(le.best.slice(0, 2), le.best.slice(2, 4), ARROW.plan, .55);
+    const vk = variationMoveCls();
+    if (vk && last) badges = badge(last.to, vk.c);
+  }
+  $('#arrows').innerHTML = arrows;
+  $('#badges').innerHTML = badges;
+}
+
+function renderEval() {
+  const { fen, inVar, retry } = current();
+  const e = retry ? S.evals[S.retry.i] : inVar ? evalOf(fen) : S.evals[S.idx];
+  const bar = $('#evalbar'), wEl = $('#evalW'), t = $('#evalTxt');
+  bar.classList.toggle('flip', S.flipped);
+  if (!e) { wEl.style.height = '50%'; t.textContent = ''; return; }
+  const cp = cpOf(e);
+  wEl.style.height = wp(cp) + '%';
+  t.textContent = fmtEval(e, true).replace('+', '');
+  const whiteAhead = cp >= 0, atBottom = whiteAhead !== S.flipped;
+  t.style.top = atBottom ? 'auto' : '0'; t.style.bottom = atBottom ? '0' : 'auto';
+  t.style.color = whiteAhead ? '#1a1a1a' : '#f0f0f0';
+}
+
+function renderCoach() {
+  S.lines = [];
+  const el = $('#coach');
+  if (S.retry) { el.innerHTML = retryHtml(); return; }
+  if (S.idx === 0) {
+    const op = gameOpening();
+    let h = `<div class="coach-head"><div class="coach-icon" style="background:var(--accent);color:var(--accent-fg)">♞</div><div><div class="coach-title">Oyun incelemesi</div><div class="coach-sub">${esc(op || 'Başlangıç pozisyonu')}</div></div></div>`;
+    h += `<p>Hamleleri <b>→</b> tuşu veya ▶ ile tek tek ilerlet. Her hamlede ne yapıldığını, daha iyi hamlenin ne olduğunu ve o hamlenin neye sebep olduğunu burada göreceksin. Yeşil ok daha iyi hamleyi, kırmızı ok rakibin en iyi cevabını gösterir. Taşları sürükleyerek istediğin pozisyonda kendi fikrini de deneyebilirsin.</p>`;
+    const moments = [];
+    S.cls.forEach((k, i) => { if (k && ['brilliant', 'great', 'blunder', 'mistake', 'miss'].includes(k.c)) moments.push(i); });
+    if (moments.length) {
+      h += `<div class="sec"><h3>Kritik anlar</h3><div class="moments">` + moments.map(i => {
+        const k = S.cls[i];
+        return `<button type="button" data-goto="${i + 1}"><span class="ico" style="background:${clsColor(k.c)}">${CLS[k.c].sym}</span><span style="font-family:var(--f-mono);font-weight:700">${esc(moveLabel(i))}</span><span class="muted">${CLS[k.c].label} · ${sideName(S.moves[i].color)}</span></button>`;
+      }).join('') + `</div></div>`;
+    } else if (!S.done) h += `<p class="muted">Kritik anlar analiz bitince burada listelenecek.</p>`;
+    if (S.done) {
+      const bw = badMoves('w').length, bb = badMoves('b').length;
+      if (bw + bb) h += `<div class="sec"><h3>Hatalarından öğren</h3><p class="muted" style="margin:0 0 6px">Hata yaptığın pozisyonlara dön, doğru hamleyi kendin bulmaya çalış.</p><div class="rbtns">`
+        + (bw ? `<button class="btn" type="button" data-retryside="w">↺ ${esc(S.names.w)}: ${bw} hata</button>` : '')
+        + (bb ? `<button class="btn" type="button" data-retryside="b">↺ ${esc(S.names.b)}: ${bb} hata</button>` : '') + `</div></div>`;
+    }
+    el.innerHTML = h;
+    return;
+  }
+  const i = S.idx - 1, k = S.cls[i];
+  if (!k) {
+    el.innerHTML = `<div class="coach-head"><div class="coach-icon" style="background:var(--c-forced)">…</div><div><div class="coach-title">${esc(moveLabel(i))}</div><div class="coach-sub">Bu hamle henüz analiz edilmedi, motor çalışıyor.</div></div></div>`;
+    return;
+  }
+  const side = sideName(S.moves[i].color);
+  const sp = S.time ? S.time.spent[i] : null, left = S.time ? S.time.clocks[i] : null;
+  const tTxt = sp != null ? ` · ⏱ ${fmtSec(sp)}${left != null ? ' (kalan ' + fmtClock(left) + ')' : ''}` : '';
+  el.innerHTML = `<div class="coach-head"><div class="coach-icon" style="background:${clsColor(k.c)}">${CLS[k.c].sym}</div><div style="min-width:0">
+    <div class="coach-title">${esc(moveLabel(i))} <span style="color:${clsColor(k.c)}">${CLS[k.c].label}</span></div>
+    <div class="coach-sub">${side} · ${fmtEval(S.evals[i])} → ${fmtEval(S.evals[i + 1])} · ${side} için kazanma şansı %${Math.round(k.wpB)} → %${Math.round(k.wpA)} · hamle isabeti %${Math.round(k.acc)}${tTxt}</div></div></div>` + explain(i);
+}
+
+function renderLiveCard() {
+  const el = $('#live'), V = S.variation;
+  if (!V) { el.hidden = true; return; }
+  el.hidden = false;
+  S.liveLines = [];
+  const { fen } = current();
+  const e = evalOf(fen);
+  let h = `<h2><span>Canlı motor</span><span class="eyebrow">${e && e.terminal ? 'oyun bitti' : e && e.depth ? 'derinlik ' + e.depth + (e.final === false ? ' · düşünüyor' : '') : 'düşünüyor…'}</span></h2>`;
+  if (V.idx > 0) {
+    const it = V.items[V.idx - 1], k = variationMoveCls();
+    const fb = V.idx === 1 ? V.startFen : V.items[V.idx - 2].fen;
+    h += k
+      ? `<p class="vfeed"><span class="ico" style="background:${clsColor(k.c)}">${CLS[k.c].sym}</span><span><b>${esc(it.san)}</b>: ${CLS[k.c].label} · ${fmtEval(evalOf(fb))} → ${fmtEval(evalOf(it.fen))}</span></p>`
+      : `<p class="vfeed muted">${esc(it.san)} değerlendiriliyor…</p>`;
+  }
+  if (e && e.terminal) h += `<p>${e.terminal === 'mate' ? 'Şah mat.' : 'Berabere.'}</p>`;
+  else if (e && e.lines) {
+    h += e.lines.map(L => {
+      const items = playLine(fen, L.pv, 10);
+      if (!items.length) return '';
+      S.liveLines.push({ startFen: fen, items, title: 'Motor önerisi' });
+      const k = S.liveLines.length - 1;
+      return `<div class="lrow"><span class="ev">${fmtEval(L)}</span>${lineHtml(S.liveLines[k], 'data-lline', k)}</div>`;
+    }).join('');
+  }
+  el.innerHTML = h;
+}
+
+function renderMoves() {
+  const el = $('#moves');
+  const { no: startNo, turn } = startFenNo(S.fens[0]);
+  let rows = '', j = 0, no = startNo;
+  const cell = i => {
+    if (i == null || i >= S.moves.length) return `<span class="mv empty"></span>`;
+    const k = S.cls[i];
+    const ic = k ? `<span class="ico" style="background:${clsColor(k.c)}" title="${CLS[k.c].label}">${CLS[k.c].sym}</span>` : '';
+    const sp = S.time ? S.time.spent[i] : null;
+    const mt = sp != null ? `<span class="mt">${fmtSec(sp)}</span>` : '';
+    return `<button type="button" class="mv${S.idx === i + 1 && !S.variation && !S.retry ? ' on' : ''}" data-goto="${i + 1}">${ic}${esc(S.moves[i].san)}${mt}</button>`;
+  };
+  if (turn === 'b') { rows += `<div class="mrow"><span class="no">${no}.</span><span class="mv empty"></span>${cell(0)}</div>`; j = 1; no++; }
+  for (; j < S.moves.length; j += 2, no++) rows += `<div class="mrow"><span class="no">${no}.</span>${cell(j)}${cell(j + 1)}</div>`;
+  el.innerHTML = rows;
+  const on = el.querySelector('.mv.on');
+  if (on) {
+    const top = on.offsetTop - el.offsetTop, h = el.clientHeight;
+    if (top < el.scrollTop || top > el.scrollTop + h - 40) el.scrollTop = top - h / 2;
+  }
+}
+
+function renderGraph() {
+  const el = $('#graph');
+  const W = el.clientWidth || 560, H = 110, n = S.fens.length - 1;
+  if (n < 1) { el.innerHTML = ''; return; }
+  const pts = [];
+  for (let k = 0; k <= n; k++) { const e = S.evals[k]; if (!e) break; pts.push([k / n * W, H - wp(cpOf(e)) / 100 * H]); }
+  let svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect width="${W}" height="${H}" fill="var(--graph-dark)"/>`;
+  if (pts.length) svg += `<path d="M0,${H} ${pts.map(p => `L${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')} L${pts[pts.length - 1][0].toFixed(1)},${H} Z" fill="var(--graph-light)"/>`;
+  svg += `<line x1="0" x2="${W}" y1="${H / 2}" y2="${H / 2}" stroke="#888" stroke-opacity=".5" stroke-dasharray="3 4"/>`;
+  const cx = S.idx / n * W;
+  svg += `<line x1="${cx}" x2="${cx}" y1="0" y2="${H}" stroke="var(--accent)" stroke-width="2"/>`;
+  S.cls.forEach((k, i) => {
+    if (!k || !['brilliant', 'great', 'mistake', 'blunder', 'miss'].includes(k.c) || !pts[i + 1]) return;
+    svg += `<circle cx="${pts[i + 1][0]}" cy="${pts[i + 1][1]}" r="4.5" fill="${clsColor(k.c)}" stroke="#fff" stroke-width="1.5"/>`;
+  });
+  el.innerHTML = svg + '</svg>';
+  renderTimeBars();
+}
+function renderTimeBars() {
+  const el = $('#timebars'), T = S.time;
+  if (!T) { el.hidden = true; el.innerHTML = ''; return; }
+  el.hidden = false;
+  const W = $('#graph').clientWidth || 560, H = 56, n = S.moves.length, mid = H / 2;
+  const max = Math.max(1, ...T.spent.filter(x => x != null));
+  const bw = Math.max(1.5, Math.min(8, W / n * .7));
+  let svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><line x1="0" x2="${W}" y1="${mid}" y2="${mid}" stroke="var(--line)"/>`;
+  T.spent.forEach((sp, i) => {
+    if (sp == null) return;
+    const h = Math.max(1, sp / max * (mid - 2)), k = S.cls[i];
+    const x = Math.min(W - bw, Math.max(0, (i + 1) / n * W - bw / 2));
+    const fill = k && BAD.has(k.c) ? clsColor(k.c) : S.moves[i].color === 'w' ? 'var(--bar-w)' : 'var(--bar-b)';
+    svg += `<rect x="${x.toFixed(1)}" y="${(S.moves[i].color === 'w' ? mid - h : mid).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="1" fill="${fill}"><title>${esc(moveLabel(i))}: ${fmtSec(sp)}</title></rect>`;
+  });
+  const cx = S.idx / n * W;
+  svg += `<line x1="${cx}" x2="${cx}" y1="0" y2="${H}" stroke="var(--accent)" stroke-width="2"/>`;
+  el.innerHTML = `<div class="eyebrow tb-cap">Düşünme süresi · üstte Beyaz, altta Siyah · renkli çubuk = hatalı hamle</div>` + svg + '</svg>';
+}
+
+function renderSummary() {
+  const el = $('#summary');
+  const cnt = { w: {}, b: {} };
+  S.cls.forEach((k, i) => { if (k) { const s = cnt[S.moves[i].color]; s[k.c] = (s[k.c] || 0) + 1; } });
+  const acc = gameAccuracy(S.fens[0].split(' ')[1]);
+  const fmt = v => v == null ? '–' : v.toFixed(1);
+  const num = (col, c) => { const v = cnt[col][c] || 0; return `<td class="num" style="color:${v && BAD.has(c) ? clsColor(c) : 'inherit'}">${v}</td>`; };
+  const rows = CLS_ORDER.map(c => `<tr><td class="lab"><span class="ico" style="background:${clsColor(c)}">${CLS[c].sym}</span>${CLS[c].label}</td>${num('w', c)}${num('b', c)}</tr>`).join('');
+  el.innerHTML = `<h2><span>Özet</span><span class="eyebrow">${S.done ? 'analiz tamam' : 'analiz sürüyor'}</span></h2>
+    <div class="acc"><div><div class="k">♔ ${esc(S.names.w)}</div><div class="v">${fmt(acc.w)}</div><div class="k">isabet</div></div>
+    <div><div class="k">♚ ${esc(S.names.b)}</div><div class="v">${fmt(acc.b)}</div><div class="k">isabet</div></div></div>
+    <table class="counts"><thead><tr><th></th><th>Beyaz</th><th>Siyah</th></tr></thead><tbody>${rows}</tbody></table>
+    ${timeStats()}
+    <p class="hint">İsabet, lichess'in formülüyle hesaplanır: kritik anlardaki hamleler daha ağır basar.</p>`;
+}
+function timeStats() {
+  if (!S.time) return '';
+  const row = col => {
+    const idx = S.time.spent.map((x, i) => [x, i]).filter(([x, i]) => x != null && S.moves[i].color === col);
+    if (!idx.length) return '<span>–</span><span></span>';
+    const avg = idx.reduce((p, [x]) => p + x, 0) / idx.length, long = idx.reduce((a, b) => b[0] > a[0] ? b : a);
+    return `<span>${sideName(col)} ort. düşünme: <b>${fmtSec(avg)}</b></span><span>En uzun: <b>${esc(moveLabel(long[1]))}</b> (${fmtSec(long[0])})</span>`;
+  };
+  return `<div class="tstat">${row('w')}${row('b')}</div>`;
+}
+
+function renderPlayers() {
+  const h = S.headers;
+  const elo = x => x ? ` (${esc(x)})` : '';
+  const op = gameOpening();
+  const meta = [h.Event, h.Date && h.Date.replace(/\.\?\?/g, ''), h.TimeControl && 'Süre ' + h.TimeControl, h.Result && h.Result !== '*' && 'Sonuç ' + h.Result, op].filter(Boolean).map(esc).join(' · ');
+  $('#players').innerHTML = `<b>♔ ${esc(S.names.w)}</b>${elo(h.WhiteElo)} &nbsp;vs&nbsp; <b>♚ ${esc(S.names.b)}</b>${elo(h.BlackElo)}<br>${meta}`;
+}
+
+function renderVarbar() {
+  const V = S.variation, el = $('#varbar');
+  if (!V) { el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = `<span class="grow"><b>${V.user ? 'Kendi denemen' : 'Varyant'}:</b> ${esc(V.title)} · ${V.idx}/${V.items.length}</span>
+    <button class="btn" type="button" data-var="prev">◀</button><button class="btn" type="button" data-var="next">▶</button>
+    <button class="btn" type="button" data-var="auto">${V.timer ? '⏸ Durdur' : '▶ Otomatik'}</button>
+    <button class="btn primary" type="button" data-var="exit">Ana oyuna dön</button>`;
+  document.querySelectorAll('.line button[data-line]').forEach(b => b.classList.toggle('on', S.lines[+b.dataset.line] === V.src && +b.dataset.step === V.idx));
+}
+
+function renderAll() { renderPlayers(); renderBoard(); renderEval(); renderCoach(); renderMoves(); renderGraph(); renderSummary(); renderVarbar(); renderLiveCard(); }
+function renderNav() {
+  renderPromo();
+  renderBoard(); renderEval(); renderVarbar(); renderLiveCard(); renderGraph();
+  if (!S.variation) { renderCoach(); renderMoves(); }
+  Live.set(S.variation && !S.retry ? current().fen : null);
+}
+function renderLive(i) {
+  renderMoves(); renderGraph(); renderSummary();
+  if (!S.variation && (S.idx === i || S.idx === i + 1 || S.idx === 0)) { renderBoard(); renderEval(); renderCoach(); }
+}
+function setProgress(f, txt) { $('#progBar').style.width = (f * 100).toFixed(1) + '%'; $('#progText').textContent = txt; }
+
+/* ---------- Navigation ---------- */
+function clearSel() { S.sel = null; S.targets = []; }
+function leaveRetry() { if (S.retry) { S.flipped = S.retry.prevFlip; S.retry = null; } }
+function go(i) { stopAuto(); clearSel(); S.variation = null; leaveRetry(); S.promo = null; S.idx = Math.max(0, Math.min(S.moves.length, i)); renderNav(); renderMoves(); }
+function openVariation(L, step, auto, user) {
+  stopAuto(); clearSel(); leaveRetry(); S.promo = null;
+  S.variation = { src: L, startFen: L.startFen, items: L.items.slice(), title: L.title, idx: step == null ? 0 : step, user: !!user };
+  renderNav(); renderMoves();
+  if (auto) toggleAuto();
+}
+function varStep(d) {
+  const V = S.variation; clearSel();
+  V.idx = Math.max(0, Math.min(V.items.length, V.idx + d));
+  renderNav();
+  if (V.idx >= V.items.length) stopAuto();
+}
+function toggleAuto() {
+  const V = S.variation; if (!V) return;
+  if (V.timer) { stopAuto(); return; }
+  if (V.idx >= V.items.length) V.idx = 0;
+  V.timer = setInterval(() => { if (S.variation) varStep(1); }, 900);
+  renderVarbar();
+}
+function stopAuto() { if (S.variation && S.variation.timer) { clearInterval(S.variation.timer); S.variation.timer = null; renderVarbar(); } }
+function step(d) { if (S.variation) { stopAuto(); varStep(d); } else go(S.idx + d); }
+/* Extend the explored line from the current position with the given items. */
+function extendVariation(items, title, user) {
+  const V = S.variation;
+  if (!V) {
+    S.variation = { src: null, startFen: S.fens[S.idx], items: items.slice(), title, idx: 1, user };
+  } else {
+    V.items = V.items.slice(0, V.idx).concat(items);
+    V.idx += 1; V.src = null; V.title = title; V.user = V.user || user;
+  }
+  stopAuto(); clearSel(); renderNav(); renderMoves();
+}
+
+/* ---------- Playing your own moves on the board ---------- */
+const drag = { from: null, ghost: null, lifted: false, x: 0, y: 0 };
+function sqFromPoint(x, y) {
+  const r = $('#board').getBoundingClientRect();
+  const f = Math.floor((x - r.left) / r.width * 8), rr = Math.floor((y - r.top) / r.height * 8);
+  if (f < 0 || f > 7 || rr < 0 || rr > 7) return null;
+  return S.flipped ? toSq(7 - f, rr) : toSq(f, 7 - rr);
+}
+function tryMove(from, to, promotion) {
+  const { fen } = current(), c = new Chess(fen);
+  const cands = c.moves({ verbose: true }).filter(m => m.from === from && m.to === to);
+  clearSel();
+  if (!cands.length) { renderBoard(); return; }
+  if (!promotion && cands.some(m => m.promotion)) { S.promo = { from, to, color: c.turn() }; renderBoard(); renderPromo(); return; }
+  S.promo = null; renderPromo();
+  const mv = c.move({ from, to, promotion: promotion || 'q' });
+  const uci = mv.from + mv.to + (mv.promotion || '');
+  if (S.retry) { retryAttempt(mv, c.fen()); return; }
+  const V = S.variation;
+  if (!V && S.idx < S.moves.length && S.ucis[S.idx] === uci) { go(S.idx + 1); return; }
+  if (V && V.items[V.idx] && V.items[V.idx].uci === uci) { varStep(1); return; }
+  extendVariation([{ san: mv.san, uci, fen: c.fen(), mv, user: true }], 'kendi hamlelerin', true);
+}
+function renderPromo() {
+  const el = $('#promo'), P = S.promo;
+  if (!P) { el.hidden = true; el.innerHTML = ''; return; }
+  el.hidden = false;
+  el.innerHTML = `<div class="promo-box"><div class="eyebrow">Piyon terfisi: taş seç</div><div class="promo-row">${['q', 'r', 'b', 'n'].map(t => `<button type="button" data-promo="${t}" title="${NAME[t]}">${pieceSvg(P.color, t)}</button>`).join('')}</div><button class="btn" type="button" data-promo="x">Vazgeç</button></div>`;
+}
+
+/* ---------- "Tekrar dene": find a better move where the game went wrong ---------- */
+const badMoves = col => S.cls.map((k, i) => k && BAD.has(k.c) && S.moves[i].color === col ? i : -1).filter(i => i >= 0);
+function startRetry(i, queue) {
+  stopAuto(); clearSel();
+  S.variation = null; S.promo = null;
+  const prevFlip = S.retry ? S.retry.prevFlip : S.flipped;
+  S.retry = { i, prevFlip, queue: queue || [i], tries: 0, solved: false, hint: false, busy: false, msg: null, tryFen: null, tryMv: null };
+  S.idx = i;
+  S.flipped = S.moves[i].color === 'b';
+  renderNav(); renderMoves();
+}
+function retryHtml() {
+  const R = S.retry, i = R.i, m = S.moves[i], k = S.cls[i], before = S.evals[i];
+  const pos = R.queue.indexOf(i), nextI = R.queue[pos + 1];
+  let h = `<div class="coach-head"><div class="coach-icon" style="background:var(--c-great)">↺</div><div style="min-width:0"><div class="coach-title">Tekrar dene</div>
+    <div class="coach-sub">${R.queue.length > 1 ? `Hata ${pos + 1}/${R.queue.length} · ` : ''}Oyunda ${esc(moveLabel(i))} oynandı (${CLS[k.c].label})</div></div></div>`;
+  h += `<p><b>${sideName(m.color)}</b> oynuyor. Daha iyi bir hamle bul: taşı sürükle ya da tıkla.</p>`;
+  if (R.msg) h += `<p class="rmsg ${R.msg.kind}">${R.msg.c ? `<span class="ico" style="background:${clsColor(R.msg.c)}">${CLS[R.msg.c].sym}</span>` : ''}<span>${R.msg.text}</span></p>`;
+  if (R.hint && !R.solved && before.best) {
+    const P = parseFen(S.fens[i]), sq = before.best.slice(0, 2);
+    h += `<p class="hint">İpucu: ${sq} karesindeki ${NAME[P[sq].type]} ile oyna.</p>`;
+  }
+  h += `<div class="rbtns">`;
+  if (!R.solved) h += `<button class="btn" type="button" data-retry="hint"${R.hint ? ' disabled' : ''}>İpucu</button><button class="btn" type="button" data-retry="solve">Çözümü göster</button>`;
+  if (nextI != null) h += `<button class="btn primary" type="button" data-retry="next">Sonraki hata ▶</button>`;
+  else if (R.solved && R.queue.length > 1) h += `<span class="muted" style="align-self:center">Tüm hataları bitirdin.</span>`;
+  h += `<button class="btn" type="button" data-retry="explain">Hamle açıklamasına dön</button></div>`;
+  return h;
+}
+async function retryAttempt(mv, fenAfter) {
+  const R = S.retry, i = R.i, before = S.evals[i];
+  if (R.busy || R.solved) { renderBoard(); return; }
+  const uci = mv.from + mv.to + (mv.promotion || '');
+  R.tries++;
+  if (uci === S.ucis[i]) {
+    R.msg = { kind: 'bad', text: `<b>${esc(mv.san)}</b> oyunda oynanan hamleydi. Başka bir hamle dene.` };
+    renderBoard(); renderCoach(); return;
+  }
+  R.tryFen = fenAfter; R.tryMv = mv; R.busy = true;
+  R.msg = { kind: 'wait', text: `<b>${esc(mv.san)}</b> değerlendiriliyor…` };
+  renderBoard(); renderCoach();
+  let after = terminalOf(new Chess(fenAfter), false);
+  if (!after && before.best && (uci === before.best || (!mv.promotion && uci === before.best.slice(0, 4)))) {
+    after = { cp: before.cp, mate: before.mate, pv: before.pv.slice(1), best: before.pv[1], lines: [] };
+  }
+  if (!after) {
+    try {
+      await Live.eng.init(); Live.set(null); await Live.eng.halt();
+      const nodes = Main.info ? Main.info.budget.normal : 1000000;
+      after = await Live.eng.analyze(`position fen ${S.fens[0]} moves ${S.ucis.slice(0, i).concat(uci).join(' ')}`, fenAfter, `go nodes ${nodes}`);
+    } catch (e) { after = null; }
+  }
+  if (S.retry !== R) return;
+  R.busy = false;
+  if (!after) { R.msg = { kind: 'bad', text: 'Motor bu hamleyi değerlendiremedi, tekrar dene.' }; R.tryFen = null; R.tryMv = null; renderBoard(); renderCoach(); return; }
+  const k = classify({ fenBefore: S.fens[i], fenAfter, mv, before, after, prevMove: S.moves[i - 1], prevCls: S.cls[i - 1], allowBook: true });
+  const evTxt = `${fmtEval(before)} → ${fmtEval(after)}`;
+  if (['best', 'great', 'brilliant', 'excellent', 'book', 'forced'].includes(k.c)) {
+    R.solved = true;
+    R.msg = { kind: 'ok', c: k.c, text: `<b>${esc(mv.san)}</b>: ${CLS[k.c].label}! ${R.tries === 1 ? 'İlk denemede buldun.' : R.tries + '. denemede buldun.'} (${evTxt})` };
+  } else {
+    const r0 = !after.terminal && after.pv && after.pv.length ? playLine(fenAfter, after.pv, 1)[0] : null;
+    R.msg = {
+      kind: k.c === 'good' ? 'meh' : 'bad', c: k.c,
+      text: `<b>${esc(mv.san)}</b>: ${CLS[k.c].label} (${evTxt}).` + (k.c === 'good' ? ' Fena değil ama daha güçlüsü var.' : '')
+        + (r0 ? ` Rakip <b>${esc(r0.san)}</b> ile cevap verirdi.` : '') + ' Tekrar dene.',
+    };
+    R.tryFen = null; R.tryMv = null;
+  }
+  renderBoard(); renderEval(); renderCoach();
+}
+function retryAction(a) {
+  const R = S.retry; if (!R) return;
+  if (a === 'hint') { R.hint = true; renderBoard(); renderCoach(); }
+  else if (a === 'solve') {
+    const i = R.i;
+    openVariation({ startFen: S.fens[i], items: playLine(S.fens[i], S.evals[i].pv, 12), title: 'Çözüm' }, 1);
+  }
+  else if (a === 'next') { const q = R.queue; startRetry(q[q.indexOf(R.i) + 1], q); }
+  else if (a === 'explain') go(R.i + 1);
+}
+const boardWrap = $('#boardWrap');
+boardWrap.addEventListener('pointerdown', e => {
+  if (e.button !== 0 || S.promo || e.target.closest('#promo')) return;
+  const sq = sqFromPoint(e.clientX, e.clientY); if (!sq) return;
+  if (S.sel && S.targets.includes(sq)) { tryMove(S.sel, sq); return; }
+  const { fen } = current(), c = new Chess(fen), pc = c.get(sq);
+  if (!pc || pc.color !== c.turn()) { if (S.sel) { clearSel(); renderBoard(); } return; }
+  S.sel = sq; S.targets = c.moves({ square: sq, verbose: true }).map(m => m.to);
+  drag.from = sq; drag.lifted = false; drag.x = e.clientX; drag.y = e.clientY;
+  const size = $('#board').getBoundingClientRect().width / 8;
+  const g = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  g.setAttribute('viewBox', '0 0 45 45'); g.setAttribute('class', 'pc ghost');
+  g.innerHTML = `<use href="#p-${pc.color}${pc.type}"/>`;
+  g.style.width = g.style.height = (size * .95) + 'px'; g.style.display = 'none';
+  document.body.appendChild(g); drag.ghost = g;
+  boardWrap.setPointerCapture(e.pointerId);
+  renderBoard();
+  e.preventDefault();
+});
+boardWrap.addEventListener('pointermove', e => {
+  if (!drag.from || !drag.ghost) return;
+  if (!drag.lifted && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 5) { drag.lifted = true; drag.ghost.style.display = ''; renderBoard(); }
+  drag.ghost.style.left = e.clientX + 'px'; drag.ghost.style.top = e.clientY + 'px';
+});
+function endDrag(e, cancel) {
+  if (!drag.from) return;
+  const from = drag.from, lifted = drag.lifted;
+  if (drag.ghost) drag.ghost.remove();
+  drag.from = null; drag.ghost = null; drag.lifted = false;
+  const to = cancel ? null : sqFromPoint(e.clientX, e.clientY);
+  if (lifted && to && to !== from && S.targets.includes(to)) tryMove(from, to);
+  else renderBoard();
+}
+boardWrap.addEventListener('pointerup', e => endDrag(e, false));
+boardWrap.addEventListener('pointercancel', e => endDrag(e, true));
+
+/* ---------- Events ---------- */
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-goto],[data-play],[data-line],[data-lline],[data-var],[data-retry],[data-retryone],[data-retryside],[data-promo],[data-recent]');
+  if (!t) return;
+  if (t.dataset.promo != null) {
+    if (t.dataset.promo === 'x' || !S.promo) { S.promo = null; renderPromo(); renderBoard(); }
+    else tryMove(S.promo.from, S.promo.to, t.dataset.promo);
+  }
+  else if (t.dataset.retry != null) retryAction(t.dataset.retry);
+  else if (t.dataset.retryone != null) startRetry(+t.dataset.retryone);
+  else if (t.dataset.retryside != null) { const q = badMoves(t.dataset.retryside); if (q.length) startRetry(q[0], q); }
+  else if (t.dataset.recent != null) {
+    const r = Store.recent()[+t.dataset.recent];
+    if (r) { try { loadGame(r.pgn, $('#depthSel').value); closeLoader(); } catch (err) { showErr(err.message); } }
+  }
+  else if (t.dataset.goto != null) go(+t.dataset.goto);
+  else if (t.dataset.play != null) openVariation(S.lines[+t.dataset.play], 0, true);
+  else if (t.dataset.line != null) openVariation(S.lines[+t.dataset.line], +t.dataset.step);
+  else if (t.dataset.lline != null) {
+    const L = S.liveLines[+t.dataset.lline], st = +t.dataset.step;
+    extendVariation(L.items, 'motor önerisi', false);
+    varStep(st - 1);
+  }
+  else if (t.dataset.var === 'prev') { stopAuto(); varStep(-1); }
+  else if (t.dataset.var === 'next') { stopAuto(); varStep(1); }
+  else if (t.dataset.var === 'auto') toggleAuto();
+  else if (t.dataset.var === 'exit') exitVariation();
+});
+function exitVariation() { stopAuto(); clearSel(); S.variation = null; renderNav(); renderMoves(); }
+$('#bStart').onclick = () => go(0);
+$('#bEnd').onclick = () => go(S.moves.length);
+$('#bPrev').onclick = () => step(-1);
+$('#bNext').onclick = () => step(1);
+$('#bFlip').onclick = () => { S.flipped = !S.flipped; renderBoard(); renderEval(); };
+$('#timebars').addEventListener('click', e => {
+  const r = e.currentTarget.getBoundingClientRect();
+  go(Math.round((e.clientX - r.left) / r.width * S.moves.length));
+});
+$('#graph').addEventListener('click', e => {
+  const r = e.currentTarget.getBoundingClientRect(), n = S.fens.length - 1;
+  go(Math.round((e.clientX - r.left) / r.width * n));
+});
+document.addEventListener('keydown', e => {
+  if (e.target.closest('textarea,input,select') || !$('#overlay').hidden) { if (e.key === 'Escape') closeLoader(); return; }
+  if (e.key === 'ArrowLeft') { step(-1); e.preventDefault(); }
+  else if (e.key === 'ArrowRight') { step(1); e.preventDefault(); }
+  else if (e.key === 'Home') go(0);
+  else if (e.key === 'End') go(S.moves.length);
+  else if (e.key === 'f' || e.key === 'F') $('#bFlip').click();
+  else if (e.key === 'Escape') {
+    if (S.promo) { S.promo = null; renderPromo(); renderBoard(); }
+    else if (S.sel) { clearSel(); renderBoard(); }
+    else if (S.retry) retryAction('explain');
+    else if (S.variation) exitVariation();
+  }
+});
+let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(renderGraph, 120); });
+
+/* ---------- Loader UI ---------- */
+function openLoader() { renderRecent(); $('#overlay').hidden = false; $('#loadErr').hidden = true; $('#pgnIn').focus(); }
+function renderRecent() {
+  const r = Store.recent(), el = $('#recent');
+  if (!r.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="eyebrow">Son oyunlar · analizleri bu tarayıcıda kayıtlı</div><div class="recent">` + r.map((x, k) =>
+    `<button type="button" data-recent="${k}"><b>${esc(x.w)}</b> – <b>${esc(x.b)}</b> <span class="muted">${esc([x.result, (x.date || '').replace(/\.\?\?/g, '')].filter(Boolean).join(' · '))}</span></button>`).join('') + `</div>`;
+}
+function closeLoader() { $('#overlay').hidden = true; }
+$('#openLoader').onclick = openLoader;
+$('#closeLoader').onclick = closeLoader;
+$('#overlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeLoader(); });
+$('#sampleBtn').onclick = () => { $('#pgnIn').value = SAMPLE; };
+$('#loaderForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const txt = $('#pgnIn').value.trim();
+  if (!txt) { showErr('Önce bir PGN yapıştır ya da dosya seç.'); return; }
+  try { loadGame(txt, $('#depthSel').value); closeLoader(); } catch (err) { showErr(err.message); }
+});
+function showErr(m) { const el = $('#loadErr'); el.textContent = m; el.hidden = false; }
+function readFile(f) { const r = new FileReader(); r.onload = () => { $('#pgnIn').value = r.result; }; r.readAsText(f); }
+$('#fileIn').addEventListener('change', e => { if (e.target.files[0]) readFile(e.target.files[0]); });
+const dropZone = $('#drop');
+['dragenter', 'dragover'].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('over'); }));
+dropZone.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) readFile(f); });
+document.addEventListener('paste', e => {
+  if (e.target.closest('textarea,input')) return;
+  const t = (e.clipboardData || window.clipboardData).getData('text');
+  if (t && /\d+\.\s*\S/.test(t)) { try { loadGame(t, S.budget); } catch (err) { openLoader(); $('#pgnIn').value = t; showErr(err.message); } }
+});
+
+/* ---------- Boot ---------- */
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { }));
+}
+(function boot() {
+  buildSprite();
+  let pgn = SAMPLE;
+  const r = Store.recent();
+  if (r.length && r[0].pgn) pgn = r[0].pgn;
+  else { try { pgn = localStorage.getItem('lastPgn') || SAMPLE; } catch (e) { } }
+  try { loadGame(pgn, 'normal'); } catch (e) { loadGame(SAMPLE, 'normal'); }
+})();
+</script>
+</body>
+</html>
