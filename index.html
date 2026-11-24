@@ -1,17 +1,17 @@
 <!doctype html>
-<html lang="tr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Satranç Oyun İnceleme</title>
-<meta name="description" content="PGN yükle; Stockfish her hamleyi tarayıcında analiz etsin, daha iyi hamleleri ve sonuçlarını tahtada gör.">
+<title>Chess Game Review</title>
+<meta name="description" content="Load a PGN; Stockfish analyzes every move in your browser and shows better moves and their consequences on the board.">
 <meta name="theme-color" content="#1d2420">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="fonts/fonts.css">
 <script src="vendor/chess.min.js"></script>
 <style>
-/* Layout: kulüp masası — solda tahta + değerlendirme çubuğu + grafik, sağda koç kartı, hamle listesi, özet */
+/* Layout: club table — board + eval bar + graph on the left; coach card, move list and summary on the right */
 :root {
   --bg: #e9ece6; --surface: #ffffff; --surface-2: #f3f5f0; --fg: #1c2420; --muted: #5b6861; --line: #d5dcd2;
   --accent: #46703a; --accent-fg: #ffffff;
@@ -51,6 +51,9 @@ button { cursor: pointer }
 .btn.primary { background: var(--accent); color: var(--accent-fg); border-color: transparent }
 .btn.primary:hover { filter: brightness(1.07) }
 .btn:disabled { opacity: .45; cursor: default }
+.lang { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden }
+.lang button { border: 0; background: var(--surface); padding: 7px 10px; font-weight: 600; font-size: 12px; color: var(--muted) }
+.lang button.on { background: var(--surface-2); color: var(--fg) }
 
 .progress { max-width: 1240px; margin: 0 auto 14px; display: flex; align-items: center; gap: 12px; font-size: 12.5px; color: var(--muted) }
 .progress .bar { flex: 1; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden }
@@ -196,11 +199,12 @@ table.counts th { font-size: 11px; color: var(--muted); font-weight: 600; text-a
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="spriteDefs"></defs></svg>
 <header class="top">
-  <h1><span class="logo" aria-hidden="true">♞</span>Oyun İnceleme</h1>
+  <h1><span class="logo" aria-hidden="true">♞</span><span data-i18n="appName">Game Review</span></h1>
   <div class="players" id="players"></div>
-  <button class="btn primary" id="openLoader" type="button">PGN yükle</button>
+  <div class="lang" role="group" aria-label="Language"><button type="button" data-lang="en">EN</button><button type="button" data-lang="tr">TR</button></div>
+  <button class="btn primary" id="openLoader" type="button" data-i18n="loadPgn">Load PGN</button>
 </header>
-<div class="progress" id="progress"><span id="progText">Motor hazırlanıyor…</span><div class="bar"><i id="progBar"></i></div></div>
+<div class="progress" id="progress"><span id="progText">Preparing engine…</span><div class="bar"><i id="progBar"></i></div></div>
 
 <main class="app">
   <section class="col">
@@ -216,21 +220,21 @@ table.counts th { font-size: 11px; color: var(--muted); font-weight: 600; text-a
     <div id="varbar" class="varbar o2" hidden></div>
     <div id="live" class="card o2" hidden></div>
     <div class="controls o3">
-      <button class="btn" id="bStart" type="button" title="Başa dön (Home)">⏮</button>
-      <button class="btn" id="bPrev" type="button" title="Önceki (←)">◀</button>
-      <button class="btn" id="bNext" type="button" title="Sonraki (→)">▶</button>
-      <button class="btn" id="bEnd" type="button" title="Sona git (End)">⏭</button>
+      <button class="btn" id="bStart" type="button" title="Back to start (Home)" data-i18n-title="tStart">⏮</button>
+      <button class="btn" id="bPrev" type="button" title="Previous (←)" data-i18n-title="tPrev">◀</button>
+      <button class="btn" id="bNext" type="button" title="Next (→)" data-i18n-title="tNext">▶</button>
+      <button class="btn" id="bEnd" type="button" title="Go to end (End)" data-i18n-title="tEnd">⏭</button>
       <span class="spacer"></span>
-      <button class="btn" id="bFlip" type="button" title="Tahtayı çevir (F)">⇅ Çevir</button>
+      <button class="btn" id="bFlip" type="button" title="Flip board (F)" data-i18n-title="tFlip" data-i18n="flip">⇅ Flip</button>
     </div>
     <div class="legend o5">
-      <span><i style="background:#6fae2e"></i>Daha iyi hamle</span>
-      <span><i style="background:#d9412f"></i>Rakibin en iyi cevabı</span>
-      <span><i style="background:#3d7fc4"></i>Varyant / motor önerisi</span>
-      <span>Taşları sürükle: kendi hamleni dene</span>
+      <span><i style="background:#6fae2e"></i><span data-i18n="legBetter">Better move</span></span>
+      <span><i style="background:#d9412f"></i><span data-i18n="legThreat">Opponent's best reply</span></span>
+      <span><i style="background:#3d7fc4"></i><span data-i18n="legPlan">Variation / engine suggestion</span></span>
+      <span data-i18n="legDrag">Drag pieces to try your own move</span>
     </div>
     <div class="card o7">
-      <h2><span>Değerlendirme grafiği</span><span class="eyebrow">tıkla, o hamleye git</span></h2>
+      <h2><span data-i18n="graphTitle">Evaluation graph</span><span class="eyebrow" data-i18n="graphHint">click to jump to that move</span></h2>
       <div id="graph"></div>
       <div id="timebars" hidden></div>
     </div>
@@ -239,7 +243,7 @@ table.counts th { font-size: 11px; color: var(--muted); font-weight: 600; text-a
   <section class="col">
     <div class="card coach o4" id="coach"></div>
     <div class="card o6">
-      <h2>Hamleler</h2>
+      <h2 data-i18n="movesTitle">Moves</h2>
       <div class="moves" id="moves"></div>
     </div>
     <div class="card o8" id="summary"></div>
@@ -248,25 +252,25 @@ table.counts th { font-size: 11px; color: var(--muted); font-weight: 600; text-a
 
 <div class="overlay" id="overlay" hidden>
   <form class="loader" id="loaderForm">
-    <h2>Oyununu yükle</h2>
-    <p>chess.com'da oyun bitince <b>Paylaş → PGN</b> ile kopyala ya da .pgn dosyasını indir. Buraya yapıştır veya dosyayı sürükle.</p>
+    <h2 data-i18n="loadTitle">Load your game</h2>
+    <p data-i18n="loadHelp">On chess.com, when the game is over, copy it with <b>Share → PGN</b> or download the .pgn file. Paste it here or drag the file in.</p>
     <textarea id="pgnIn" spellcheck="false" placeholder='[Event "Live Chess"]&#10;[White "..."]&#10;[Black "..."]&#10;&#10;1. e4 e5 2. Nf3 Nc6 ...'></textarea>
-    <div class="drop" id="drop">.pgn dosyasını buraya bırak ya da <label style="text-decoration:underline;cursor:pointer">seç<input type="file" id="fileIn" accept=".pgn,.txt,text/plain" hidden></label></div>
+    <div class="drop" id="drop"><span data-i18n="dropText">Drop a .pgn file here or</span> <label style="text-decoration:underline;cursor:pointer"><span data-i18n="choose">choose one</span><input type="file" id="fileIn" accept=".pgn,.txt,text/plain" hidden></label></div>
     <div class="row">
-      <label for="depthSel" class="muted">Analiz derinliği</label>
+      <label for="depthSel" class="muted" data-i18n="depth">Analysis depth</label>
       <select id="depthSel">
-        <option value="fast">Hızlı</option>
-        <option value="normal" selected>Dengeli</option>
-        <option value="deep">Derin (yavaş)</option>
+        <option value="fast" data-i18n="optFast">Fast</option>
+        <option value="normal" selected data-i18n="optNormal">Balanced</option>
+        <option value="deep" data-i18n="optDeep">Deep (slow)</option>
       </select>
     </div>
     <div class="err" id="loadErr" hidden></div>
     <div id="recent"></div>
     <div class="row">
-      <button class="btn primary" type="submit">Analiz et</button>
-      <button class="btn" type="button" id="sampleBtn">Örnek oyun</button>
+      <button class="btn primary" type="submit" data-i18n="analyze">Analyze</button>
+      <button class="btn" type="button" id="sampleBtn" data-i18n="sample">Sample game</button>
       <span style="flex:1"></span>
-      <button class="btn" type="button" id="closeLoader">Kapat</button>
+      <button class="btn" type="button" id="closeLoader" data-i18n="close">Close</button>
     </div>
   </form>
 </div>
@@ -284,7 +288,6 @@ const ENGINES = [
 function wasmAllowed() {
   try { new WebAssembly.Module(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0])); return true; } catch (e) { return false; }
 }
-const BUDGET_LABEL = { fast: 'hızlı', normal: 'dengeli', deep: 'derin' };
 const SAMPLE = `[Event "Paris Opera"]
 [Site "Paris FRA"]
 [Date "1858.??.??"]
@@ -297,7 +300,6 @@ const SAMPLE = `[Event "Paris Opera"]
 14. Rd1 Qe6 15. Bxd7+ Nxd7 16. Qb8+ Nxb8 17. Rd8# 1-0`;
 
 const VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
-const NAME = { p: 'piyon', n: 'at', b: 'fil', r: 'kale', q: 'vezir', k: 'şah' };
 /* Piece artwork: hand-drawn for this page on a 45×45 grid. {F} fill, {S} outline, {D} detail lines. */
 const PIECE_SVG = {
   p: `<path d="M13 40h19v-2.5H13z"/><path d="M14.5 37.5c.4-5 2.8-8.6 5.6-10.6h4.8c2.8 2 5.2 5.6 5.6 10.6z"/><path d="M20.6 26.9l.6-5h2.6l.6 5z"/><path d="M17 26.9a5.5 1.6 0 0 1 11 0z"/><circle cx="22.5" cy="16.2" r="5.3"/>`,
@@ -319,28 +321,215 @@ function buildSprite() {
 }
 const pieceSvg = (col, t, cls) => `<svg class="pc${cls ? ' ' + cls : ''}" viewBox="0 0 45 45" aria-hidden="true"><use href="#p-${col}${t}"/></svg>`;
 
-const CLS = {
-  brilliant: { sym: '!!', label: 'Muhteşem' },
-  great: { sym: '!', label: 'Harika' },
-  best: { sym: '★', label: 'En İyi' },
-  book: { sym: '≡', label: 'Teorik' },
-  excellent: { sym: '✓', label: 'Mükemmel' },
-  good: { sym: '+', label: 'İyi' },
-  forced: { sym: '□', label: 'Zorunlu' },
-  inaccuracy: { sym: '?!', label: 'Yanlışlık' },
-  mistake: { sym: '?', label: 'Hata' },
-  miss: { sym: '✕', label: 'Kaçırılan Fırsat' },
-  blunder: { sym: '??', label: 'Büyük Hata' },
-};
+const CLS = {};
+for (const [c, sym] of Object.entries({ brilliant: '!!', great: '!', best: '★', book: '≡', excellent: '✓', good: '+', forced: '□', inaccuracy: '?!', mistake: '?', miss: '✕', blunder: '??' })) {
+  CLS[c] = { sym, get label() { return tx('cls')[c]; } };
+}
 const CLS_ORDER = ['brilliant', 'great', 'best', 'book', 'excellent', 'good', 'forced', 'inaccuracy', 'mistake', 'miss', 'blunder'];
 const BAD = new Set(['inaccuracy', 'mistake', 'miss', 'blunder']);
 const NO_BETTER = new Set(['best', 'great', 'brilliant', 'forced', 'book']);
 const ARROW = { better: '#6fae2e', threat: '#d9412f', plan: '#3d7fc4' };
 
+/* ---------- Language: English by default, Turkish via the EN/TR switch ---------- */
+const I18N = {
+  en: {
+    title: 'Chess Game Review',
+    metaDesc: 'Load a PGN; Stockfish analyzes every move in your browser and shows better moves and their consequences on the board.',
+    appName: 'Game Review', loadPgn: 'Load PGN',
+    tStart: 'Back to start (Home)', tPrev: 'Previous (←)', tNext: 'Next (→)', tEnd: 'Go to end (End)', tFlip: 'Flip board (F)', flip: '⇅ Flip',
+    legBetter: 'Better move', legThreat: "Opponent's best reply", legPlan: 'Variation / engine suggestion', legDrag: 'Drag pieces to try your own move',
+    graphTitle: 'Evaluation graph', graphHint: 'click to jump to that move', movesTitle: 'Moves',
+    loadTitle: 'Load your game',
+    loadHelp: 'On chess.com, when the game is over, copy it with <b>Share → PGN</b> or download the .pgn file. Paste it here or drag the file in.',
+    dropText: 'Drop a .pgn file here or', choose: 'choose one', depth: 'Analysis depth',
+    optFast: 'Fast', optNormal: 'Balanced', optDeep: 'Deep (slow)', analyze: 'Analyze', sample: 'Sample game', close: 'Close',
+    budget: { fast: 'fast', normal: 'balanced', deep: 'deep' },
+    pieces: { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' },
+    cls: { brilliant: 'Brilliant', great: 'Great', best: 'Best', book: 'Book', excellent: 'Excellent', good: 'Good', forced: 'Forced',
+      inaccuracy: 'Inaccuracy', mistake: 'Mistake', miss: 'Miss', blunder: 'Blunder' },
+    white: 'White', black: 'Black', sec: ' s',
+    engineStart: 'Preparing engine…',
+    engineFail: 'Could not load the chess engine. Check your internet connection and reload the page.',
+    progCached: (n, b, eng) => `Saved analysis loaded · ${n} plies · ${I18N.en.budget[b]} setting · ${eng}`,
+    progRun: (i, n, eng) => `Analyzing: ${i}/${n} plies · ${eng}`,
+    progDone: (n, b, eng) => `Analysis complete · ${n} plies · ${I18N.en.budget[b]} setting · ${eng}`,
+    badFen: 'The FEN header in the PGN is invalid.',
+    badMove: (raw, no) => `Could not read move "${raw}" (around move ${no}). Check the PGN.`,
+    noMoves: 'No moves found in the PGN.', noPgn: 'Paste a PGN or choose a file first.',
+    pieceAt: (sq, p) => `the ${p} on ${sq}`,
+    book: op => `Book opening move${op ? `: <b>${op}</b>` : ''}.`,
+    castled: me => `${me} castled; the king is safe and the rook joins the game.`,
+    captured: (p, sq) => `Captured: ${p} (${sq}).`,
+    promoted: p => `Pawn promoted to ${p}.`,
+    mate: '<b>Checkmate!</b> The game ended with this move.', drawEnd: 'The game ended in a draw with this move.', check: 'Check.',
+    brilliant: me => `This is a sacrifice: the opponent seems able to win material, but the engine rates this move best; in return ${me} takes over the game.`,
+    great: (san, ev) => `This was the only strong continuation. The second-best move (${san}) dropped the evaluation to ${ev}.`,
+    forced: 'There was no other legal move.',
+    miss: opp => `${opp} made a mistake on the previous move; this move missed the chance to punish it.`,
+    mateLost: (me, n) => `<b>A forced mate slipped away.</b> In the previous position ${me} could mate in ${n}.`,
+    mated: (now, opp, n) => `<b>${now ? 'Mate is now unavoidable: ' : ''}${opp} mates in ${n}.</b>`,
+    mating: (me, n) => `${me} is on the way to mate: forced mate in ${n}.`,
+    replyCap: (opp, san, what) => `The best reply for ${opp} is <b>${san}</b>, capturing ${what}.`,
+    replyCheck: (opp, san) => `The best reply for ${opp} is <b>${san}</b>, taking the initiative with check.`,
+    reply: (opp, san) => `The best reply for ${opp} is <b>${san}</b>.`,
+    hanging: (what, g) => `Watch out: ${what} can be captured (the opponent wins about ${g} points).`,
+    loss: (me, n) => `In the engine's line, once the exchanges are over, ${me} has lost about <b>${n} points</b> of material.`,
+    noLoss: 'No direct material loss, but the position got weaker (piece activity, king safety or pawn structure).',
+    timePressure: c => `There was time pressure: ${c} left on the clock after the move.`,
+    hasty: s => `This move was played in ${s}; it may be a hasty mistake.`,
+    slow: (s, x) => `${s} was spent on this move (${x}× the average); despite the long think, the calculation went wrong.`,
+    retryHere: '↺ Retry this position',
+    whyMate: (san, n) => `<b>${san}</b> had mate in ${n}!`,
+    whyCap: (san, what) => `<b>${san}</b> would have won ${what}.`,
+    whyCheck: san => `<b>${san}</b> built pressure with check.`,
+    whyBetter: san => `<b>${san}</b> was better.`,
+    whyMat: d => `This line kept about ${d} more points of material than the move played.`,
+    whyEval: (a, b) => `The evaluation would have been ${a}; after the move played it is ${b}.`,
+    betterTitle: san => `Better: ${san}`, playOnBoard: 'Play on board ▶',
+    bestAfter: 'Best continuation after the move played', consequence: 'What this move led to', expected: 'Expected continuation',
+    tryHint: 'Tip: drag or click the pieces to try your own move in this position.',
+    reviewTitle: 'Game review', startPos: 'Starting position',
+    intro: 'Step through the moves one by one with the <b>→</b> key or ▶. For each move you will see what was played, what the better move was and what that move led to. The green arrow shows the better move, the red arrow the opponent\'s best reply. You can also drag pieces to try your own ideas in any position.',
+    critical: 'Critical moments', criticalWait: 'Critical moments will be listed here once the analysis is finished.',
+    learn: 'Learn from your mistakes', learnHelp: 'Go back to the positions where you went wrong and try to find the right move yourself.',
+    nErrors: n => `${n} ${n === 1 ? 'mistake' : 'mistakes'}`,
+    notYet: 'This move has not been analyzed yet; the engine is working.',
+    left: c => ` (${c} left)`,
+    coachSub: (side, e1, e2, a, b, acc) => `${side} · ${e1} → ${e2} · winning chances for ${side} ${a}% → ${b}% · move accuracy ${acc}%`,
+    liveEngine: 'Live engine', gameOver: 'game over', depthN: d => `depth ${d}`, thinking: 'thinking',
+    evaluating: san => `Evaluating ${san}…`, mateShort: 'Checkmate.', drawShort: 'Draw.', engineLine: 'Engine suggestion',
+    timeCap: 'Thinking time · White on top, Black below · colored bar = mistake',
+    summary: 'Summary', anaDone: 'analysis done', anaRun: 'analysis running', accuracy: 'accuracy',
+    accHint: "Accuracy uses lichess's formula: moves at critical moments weigh more.",
+    avgThink: (side, s) => `${side} avg. think time: <b>${s}</b>`, longest: (mv, s) => `Longest: <b>${mv}</b> (${s})`,
+    tc: x => `Time control ${x}`, result: x => `Result ${x}`,
+    ownTry: 'Your try', variation: 'Variation', pause: '⏸ Pause', auto: '▶ Auto', backMain: 'Back to game', ownMoves: 'your moves',
+    promoTitle: 'Promotion: choose a piece', cancel: 'Cancel',
+    retryTitle: 'Try again', mistakeN: (a, b) => `Mistake ${a}/${b} · `,
+    playedInGame: (mv, lab) => `${mv} was played in the game (${lab})`,
+    toMove: side => `<b>${side}</b> to move. Find a better move: drag or click a piece.`,
+    hintText: (sq, p) => `Hint: play with the ${p} on ${sq}.`,
+    hint: 'Hint', showSolution: 'Show solution', nextMistake: 'Next mistake ▶', allDone: 'You have gone through all the mistakes.',
+    backExplain: 'Back to move explanation',
+    wasPlayed: san => `<b>${san}</b> was the move played in the game. Try another move.`,
+    evalWait: san => `Evaluating <b>${san}</b>…`,
+    evalFail: 'The engine could not evaluate this move, try again.',
+    foundFirst: 'Found on the first try.', foundN: n => `Found on try ${n}.`,
+    notBad: ' Not bad, but there is something stronger.', oppReply: san => ` The opponent would reply <b>${san}</b>.`, tryAgain: ' Try again.',
+    solution: 'Solution', recent: 'Recent games · analyses saved in this browser',
+  },
+  tr: {
+    title: 'Satranç Oyun İnceleme',
+    metaDesc: 'PGN yükle; Stockfish her hamleyi tarayıcında analiz etsin, daha iyi hamleleri ve sonuçlarını tahtada gör.',
+    appName: 'Oyun İnceleme', loadPgn: 'PGN yükle',
+    tStart: 'Başa dön (Home)', tPrev: 'Önceki (←)', tNext: 'Sonraki (→)', tEnd: 'Sona git (End)', tFlip: 'Tahtayı çevir (F)', flip: '⇅ Çevir',
+    legBetter: 'Daha iyi hamle', legThreat: 'Rakibin en iyi cevabı', legPlan: 'Varyant / motor önerisi', legDrag: 'Taşları sürükle: kendi hamleni dene',
+    graphTitle: 'Değerlendirme grafiği', graphHint: 'tıkla, o hamleye git', movesTitle: 'Hamleler',
+    loadTitle: 'Oyununu yükle',
+    loadHelp: 'chess.com\'da oyun bitince <b>Paylaş → PGN</b> ile kopyala ya da .pgn dosyasını indir. Buraya yapıştır veya dosyayı sürükle.',
+    dropText: '.pgn dosyasını buraya bırak ya da', choose: 'seç', depth: 'Analiz derinliği',
+    optFast: 'Hızlı', optNormal: 'Dengeli', optDeep: 'Derin (yavaş)', analyze: 'Analiz et', sample: 'Örnek oyun', close: 'Kapat',
+    budget: { fast: 'hızlı', normal: 'dengeli', deep: 'derin' },
+    pieces: { p: 'piyon', n: 'at', b: 'fil', r: 'kale', q: 'vezir', k: 'şah' },
+    cls: { brilliant: 'Muhteşem', great: 'Harika', best: 'En İyi', book: 'Teorik', excellent: 'Mükemmel', good: 'İyi', forced: 'Zorunlu',
+      inaccuracy: 'Yanlışlık', mistake: 'Hata', miss: 'Kaçırılan Fırsat', blunder: 'Büyük Hata' },
+    white: 'Beyaz', black: 'Siyah', sec: ' sn',
+    engineStart: 'Motor hazırlanıyor…',
+    engineFail: 'Satranç motoru yüklenemedi. İnternet bağlantını kontrol edip sayfayı yenile.',
+    progCached: (n, b, eng) => `Kayıtlı analiz yüklendi · ${n} yarım hamle · ${I18N.tr.budget[b]} ayar · ${eng}`,
+    progRun: (i, n, eng) => `Analiz ediliyor: ${i}/${n} yarım hamle · ${eng}`,
+    progDone: (n, b, eng) => `Analiz tamamlandı · ${n} yarım hamle · ${I18N.tr.budget[b]} ayar · ${eng}`,
+    badFen: 'PGN içindeki FEN başlığı geçersiz.',
+    badMove: (raw, no) => `Hamle okunamadı: "${raw}" (${no}. hamle civarı). PGN'i kontrol et.`,
+    noMoves: 'PGN içinde hamle bulunamadı.', noPgn: 'Önce bir PGN yapıştır ya da dosya seç.',
+    pieceAt: (sq, p) => `${sq} karesindeki ${p}`,
+    book: op => `Teorik açılış hamlesi${op ? `: <b>${op}</b>` : ''}.`,
+    castled: me => `${me} rok yaptı; şah güvenceye alındı ve kale oyuna girdi.`,
+    captured: (p, sq) => `Alınan taş: ${p} (${sq}).`,
+    promoted: p => `Piyon terfi etti: ${p}.`,
+    mate: '<b>Şah mat!</b> Oyun bu hamleyle bitti.', drawEnd: 'Bu hamleyle oyun berabere bitti.', check: 'Şah çekildi.',
+    brilliant: me => `Bu bir taş fedası: rakip materyal kazanabilir görünüyor, ama motor bu hamleyi en iyi buluyor; feda karşılığında ${me} oyunu ele geçiriyor.`,
+    great: (san, ev) => `Bu pozisyonda tek güçlü devam buydu. İkinci en iyi hamle (${san}) değerlendirmeyi ${ev} seviyesine düşürüyordu.`,
+    forced: 'Başka yasal hamle yoktu.',
+    miss: opp => `${opp} bir önceki hamlede hata yapmıştı; bu hamle o hatayı cezalandırma fırsatını kaçırdı.`,
+    mateLost: (me, n) => `<b>Zorlayıcı mat kaçtı.</b> Önceki pozisyonda ${me} ${n} hamlede mat edebiliyordu.`,
+    mated: (now, opp, n) => `<b>${now ? 'Artık mat kaçınılmaz: ' : ''}${opp} ${n} hamlede mat ediyor.</b>`,
+    mating: (me, n) => `${me} mat yolunda: ${n} hamlede zorlayıcı mat var.`,
+    replyCap: (opp, san, what) => `${opp} için en iyi cevap <b>${san}</b>: ${what} alınıyor.`,
+    replyCheck: (opp, san) => `${opp} için en iyi cevap <b>${san}</b>, şah çekerek inisiyatifi alıyor.`,
+    reply: (opp, san) => `${opp} için en iyi cevap <b>${san}</b>.`,
+    hanging: (what, g) => `Dikkat: ${what} alınabilir durumda (rakip yaklaşık ${g} puan kazanır).`,
+    loss: (me, n) => `Motorun devam varyantında taş alışverişi bittiğinde ${me} yaklaşık <b>${n} puan</b> materyal kaybetmiş oluyor.`,
+    noLoss: 'Doğrudan taş kaybı yok; ama pozisyon zayıfladı (taş aktivitesi, şah güvenliği veya piyon yapısı açısından).',
+    timePressure: c => `Zaman baskısı vardı: hamleden sonra saatte ${c} kalmıştı.`,
+    hasty: s => `Bu hamle ${s} içinde oynandı; acele kaynaklı bir hata olabilir.`,
+    slow: (s, x) => `Bu hamleye ${s} harcandı (ortalamanın ${x} katı); uzun düşünülmesine rağmen hesap yanlış çıktı.`,
+    retryHere: '↺ Bu pozisyonda tekrar dene',
+    whyMate: (san, n) => `<b>${san}</b> ile ${n} hamlede mat vardı!`,
+    whyCap: (san, what) => `<b>${san}</b> ile ${what} alınabilirdi.`,
+    whyCheck: san => `<b>${san}</b> şah çekerek baskı kuruyordu.`,
+    whyBetter: san => `Daha iyisi <b>${san}</b> idi.`,
+    whyMat: d => `Bu varyant, oynanan hamleye göre yaklaşık ${d} puan daha fazla materyal bırakıyordu.`,
+    whyEval: (a, b) => `Değerlendirme ${a} olurdu; oynanan hamleden sonra ${b}.`,
+    betterTitle: san => `Daha iyisi: ${san}`, playOnBoard: 'Tahtada oynat ▶',
+    bestAfter: 'Oynanan hamleden sonra en iyi devam', consequence: 'Bu hamle neye sebep oldu', expected: 'Beklenen devam',
+    tryHint: 'İpucu: taşları sürükleyerek ya da tıklayarak bu pozisyonda kendi hamleni deneyebilirsin.',
+    reviewTitle: 'Oyun incelemesi', startPos: 'Başlangıç pozisyonu',
+    intro: 'Hamleleri <b>→</b> tuşu veya ▶ ile tek tek ilerlet. Her hamlede ne yapıldığını, daha iyi hamlenin ne olduğunu ve o hamlenin neye sebep olduğunu burada göreceksin. Yeşil ok daha iyi hamleyi, kırmızı ok rakibin en iyi cevabını gösterir. Taşları sürükleyerek istediğin pozisyonda kendi fikrini de deneyebilirsin.',
+    critical: 'Kritik anlar', criticalWait: 'Kritik anlar analiz bitince burada listelenecek.',
+    learn: 'Hatalarından öğren', learnHelp: 'Hata yaptığın pozisyonlara dön, doğru hamleyi kendin bulmaya çalış.',
+    nErrors: n => `${n} hata`,
+    notYet: 'Bu hamle henüz analiz edilmedi, motor çalışıyor.',
+    left: c => ` (kalan ${c})`,
+    coachSub: (side, e1, e2, a, b, acc) => `${side} · ${e1} → ${e2} · ${side} için kazanma şansı %${a} → %${b} · hamle isabeti %${acc}`,
+    liveEngine: 'Canlı motor', gameOver: 'oyun bitti', depthN: d => `derinlik ${d}`, thinking: 'düşünüyor',
+    evaluating: san => `${san} değerlendiriliyor…`, mateShort: 'Şah mat.', drawShort: 'Berabere.', engineLine: 'Motor önerisi',
+    timeCap: 'Düşünme süresi · üstte Beyaz, altta Siyah · renkli çubuk = hatalı hamle',
+    summary: 'Özet', anaDone: 'analiz tamam', anaRun: 'analiz sürüyor', accuracy: 'isabet',
+    accHint: 'İsabet, lichess\'in formülüyle hesaplanır: kritik anlardaki hamleler daha ağır basar.',
+    avgThink: (side, s) => `${side} ort. düşünme: <b>${s}</b>`, longest: (mv, s) => `En uzun: <b>${mv}</b> (${s})`,
+    tc: x => `Süre ${x}`, result: x => `Sonuç ${x}`,
+    ownTry: 'Kendi denemen', variation: 'Varyant', pause: '⏸ Durdur', auto: '▶ Otomatik', backMain: 'Ana oyuna dön', ownMoves: 'kendi hamlelerin',
+    promoTitle: 'Piyon terfisi: taş seç', cancel: 'Vazgeç',
+    retryTitle: 'Tekrar dene', mistakeN: (a, b) => `Hata ${a}/${b} · `,
+    playedInGame: (mv, lab) => `Oyunda ${mv} oynandı (${lab})`,
+    toMove: side => `<b>${side}</b> oynuyor. Daha iyi bir hamle bul: taşı sürükle ya da tıkla.`,
+    hintText: (sq, p) => `İpucu: ${sq} karesindeki ${p} ile oyna.`,
+    hint: 'İpucu', showSolution: 'Çözümü göster', nextMistake: 'Sonraki hata ▶', allDone: 'Tüm hataları bitirdin.',
+    backExplain: 'Hamle açıklamasına dön',
+    wasPlayed: san => `<b>${san}</b> oyunda oynanan hamleydi. Başka bir hamle dene.`,
+    evalWait: san => `<b>${san}</b> değerlendiriliyor…`,
+    evalFail: 'Motor bu hamleyi değerlendiremedi, tekrar dene.',
+    foundFirst: 'İlk denemede buldun.', foundN: n => `${n}. denemede buldun.`,
+    notBad: ' Fena değil ama daha güçlüsü var.', oppReply: san => ` Rakip <b>${san}</b> ile cevap verirdi.`, tryAgain: ' Tekrar dene.',
+    solution: 'Çözüm', recent: 'Son oyunlar · analizleri bu tarayıcıda kayıtlı',
+  },
+};
+let LANG = 'en';
+try { if (localStorage.getItem('lang') === 'tr') LANG = 'tr'; } catch (e) { }
+const tx = (k, ...a) => { const v = I18N[LANG][k]; return typeof v === 'function' ? v(...a) : v; };
+const pieceName = p => tx('pieces')[p];
+function applyLang() {
+  document.documentElement.lang = LANG;
+  document.title = tx('title');
+  document.querySelector('meta[name="description"]').content = tx('metaDesc');
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = tx(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = tx(el.dataset.i18nTitle); });
+  document.querySelectorAll('[data-lang]').forEach(b => { b.classList.toggle('on', b.dataset.lang === LANG); b.setAttribute('aria-pressed', b.dataset.lang === LANG); });
+}
+function setLang(l) {
+  LANG = l;
+  try { localStorage.setItem('lang', l); } catch (e) { }
+  applyLang();
+  renderAll();
+  if (!$('#overlay').hidden) renderRecent();
+  if (S.prog) setProgress(S.prog[0], S.prog[1], ...S.prog[2]);
+}
+
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const clsColor = c => `var(--c-${c})`;
-const sideName = c => c === 'w' ? 'Beyaz' : 'Siyah';
+const sideName = c => c === 'w' ? tx('white') : tx('black');
 const other = c => c === 'w' ? 'b' : 'w';
 
 /* ---------- State ---------- */
@@ -535,7 +724,7 @@ class Engine {
           return true;
         } catch (e) { /* try the next way of loading */ }
       }
-      throw new Error('Satranç motoru yüklenemedi.');
+      throw new Error('Could not load the chess engine.');
     })();
     return this.ready;
   }
@@ -658,7 +847,7 @@ function timeInfo(headers, clocks, n) {
   }
   return { base, inc, clocks, spent };
 }
-function fmtSec(s) { if (s == null) return ''; if (s < 10) return s.toFixed(1) + ' sn'; if (s < 60) return Math.round(s) + ' sn'; return fmtClock(s); }
+function fmtSec(s) { if (s == null) return ''; if (s < 10) return s.toFixed(1) + tx('sec'); if (s < 60) return Math.round(s) + tx('sec'); return fmtClock(s); }
 function fmtClock(s) {
   s = Math.max(0, Math.round(s));
   const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
@@ -684,7 +873,7 @@ function parsePgn(text) {
   const tokens = body.split(/\s+/).map(t => t.replace(/[!?]+$/, '')).filter(t => t && !/^(1-0|0-1|1\/2-1\/2|½-½|\*)$/.test(t));
   const startFen = headers.FEN || new Chess().fen();
   const c = new Chess();
-  if (!c.load(startFen)) throw new Error('PGN içindeki FEN başlığı geçersiz.');
+  if (!c.load(startFen)) throw new Error(tx('badFen'));
   const moves = [], fens = [c.fen()], ucis = [], clocks = [];
   for (const raw of tokens) {
     const cm = raw.match(/^\{(\d+)\}$/);
@@ -695,10 +884,10 @@ function parsePgn(text) {
     }
     const tok = raw.replace(/^0-0-0/, 'O-O-O').replace(/^0-0/, 'O-O');
     const mv = c.move(tok, { sloppy: true });
-    if (!mv) throw new Error(`Hamle okunamadı: "${raw}" (${Math.floor(moves.length / 2) + 1}. hamle civarı). PGN'i kontrol et.`);
+    if (!mv) throw new Error(tx('badMove', raw, Math.floor(moves.length / 2) + 1));
     moves.push(mv); fens.push(c.fen()); ucis.push(mv.from + mv.to + (mv.promotion || ''));
   }
-  if (!moves.length) throw new Error('PGN içinde hamle bulunamadı.');
+  if (!moves.length) throw new Error(tx('noMoves'));
   // Only the final position can end the game; chess.js tracks repetition across the whole history here.
   const term = fens.map(() => null);
   term[fens.length - 1] = terminalOf(c, true);
@@ -716,7 +905,7 @@ function loadGame(text, budget) {
   });
   S.gameKey = fnv(g.fens.join('|'));
   S.fenIdx = new Map(); g.fens.forEach((f, i) => { if (!S.fenIdx.has(f)) S.fenIdx.set(f, i); });
-  S.names = { w: g.headers.White || 'Beyaz', b: g.headers.Black || 'Siyah' };
+  S.names = { w: g.headers.White || tx('white'), b: g.headers.Black || tx('black') };
   Live.set(null);
   Store.remember(text, g.headers);
   openReady.then(() => { S.opening = S.fens.map(openingAt); renderPlayers(); if (S.idx === 0) renderCoach(); });
@@ -735,8 +924,8 @@ function gameOpening() {
 
 /* ---------- Analysis loop ---------- */
 async function analyzeAll(run) {
-  setProgress(0, 'Motor hazırlanıyor…');
-  try { await Main.init(); } catch (e) { setProgress(0, e.message + ' İnternet bağlantını kontrol edip sayfayı yenile.'); return; }
+  setProgress(0, 'engineStart');
+  try { await Main.init(); } catch (e) { setProgress(0, 'engineFail'); return; }
   await Main.halt();
   await openReady;
   if (run !== S.run) return;
@@ -746,7 +935,7 @@ async function analyzeAll(run) {
     S.evals = cached.map(unpackEval);
     for (let i = 0; i < S.moves.length; i++) S.cls[i] = classifyMain(i);
     S.done = true;
-    setProgress(1, `Kayıtlı analiz yüklendi · ${S.moves.length} yarım hamle · ${BUDGET_LABEL[S.budget]} ayar · ${Main.info.name}`);
+    setProgress(1, 'progCached', S.moves.length, S.budget, Main.info.name);
     renderAll();
     return;
   }
@@ -756,7 +945,7 @@ async function analyzeAll(run) {
   const n = S.fens.length;
   for (let i = 0; i < n; i++) {
     if (run !== S.run) return;
-    setProgress(i / n, `Analiz ediliyor: ${i}/${n - 1} yarım hamle · ${Main.info.name}`);
+    setProgress(i / n, 'progRun', i, n - 1, Main.info.name);
     let e = S.term[i];
     if (!e) {
       const pos = `position fen ${S.fens[0]}` + (i ? ' moves ' + S.ucis.slice(0, i).join(' ') : '');
@@ -769,7 +958,7 @@ async function analyzeAll(run) {
   }
   S.done = true;
   Store.set(cacheKey, S.evals.map(packEval));
-  setProgress(1, `Analiz tamamlandı · ${n - 1} yarım hamle · ${BUDGET_LABEL[S.budget]} ayar · ${Main.info.name}`);
+  setProgress(1, 'progDone', n - 1, S.budget, Main.info.name);
   renderAll();
 }
 
@@ -840,7 +1029,7 @@ function lineHtml(L, attr, k) {
   });
   return `<div class="line">${out}</div>`;
 }
-const pieceAt = (sq, t) => `${sq} karesindeki ${NAME[t]}`;
+const pieceAt = (sq, p) => tx('pieceAt', sq, pieceName(p));
 
 function explain(i) {
   const m = S.moves[i], before = S.evals[i], after = S.evals[i + 1], k = S.cls[i];
@@ -848,77 +1037,77 @@ function explain(i) {
   const pov = m.color === 'w' ? 1 : -1;
   const out = [], say = [];
 
-  if (k.c === 'book') say.push(`Teorik açılış hamlesi${k.opening ? `: <b>${esc(k.opening.replace(/^[A-E]\d\d /, ''))}</b>` : ''}.`);
-  if (m.flags.includes('k') || m.flags.includes('q')) say.push(`${me} rok yaptı; şah güvenceye alındı ve kale oyuna girdi.`);
-  if (m.captured) say.push(`Alınan taş: ${NAME[m.captured]} (${m.to}).`);
-  if (m.promotion) say.push(`Piyon terfi etti: ${NAME[m.promotion]}.`);
-  if (after.terminal === 'mate') say.push('<b>Şah mat!</b> Oyun bu hamleyle bitti.');
-  else if (after.terminal === 'draw') say.push('Bu hamleyle oyun berabere bitti.');
-  else if (m.san.includes('+')) say.push('Şah çekildi.');
+  if (k.c === 'book') say.push(tx('book', k.opening ? esc(k.opening.replace(/^[A-E]\d\d /, '')) : ''));
+  if (m.flags.includes('k') || m.flags.includes('q')) say.push(tx('castled', me));
+  if (m.captured) say.push(tx('captured', pieceName(m.captured), m.to));
+  if (m.promotion) say.push(tx('promoted', pieceName(m.promotion)));
+  if (after.terminal === 'mate') say.push(tx('mate'));
+  else if (after.terminal === 'draw') say.push(tx('drawEnd'));
+  else if (m.san.includes('+')) say.push(tx('check'));
 
-  if (k.c === 'brilliant') say.push(`Bu bir taş fedası: rakip materyal kazanabilir görünüyor, ama motor bu hamleyi en iyi buluyor; feda karşılığında ${me} oyunu ele geçiriyor.`);
+  if (k.c === 'brilliant') say.push(tx('brilliant', me));
   if (k.c === 'great' && before.lines[1]) {
     const alt = playLine(S.fens[i], before.lines[1].pv, 1)[0];
-    if (alt) say.push(`Bu pozisyonda tek güçlü devam buydu. İkinci en iyi hamle (${esc(alt.san)}) değerlendirmeyi ${fmtEval(before.lines[1])} seviyesine düşürüyordu.`);
+    if (alt) say.push(tx('great', esc(alt.san), fmtEval(before.lines[1])));
   }
-  if (k.c === 'forced') say.push('Başka yasal hamle yoktu.');
-  if (k.c === 'miss') say.push(`${opp} bir önceki hamlede hata yapmıştı; bu hamle o hatayı cezalandırma fırsatını kaçırdı.`);
-  if (k.tag === 'mateLost') say.push(`<b>Zorlayıcı mat kaçtı.</b> Önceki pozisyonda ${me} ${Math.abs(before.mate)} hamlede mat edebiliyordu.`);
+  if (k.c === 'forced') say.push(tx('forced'));
+  if (k.c === 'miss') say.push(tx('miss', opp));
+  if (k.tag === 'mateLost') say.push(tx('mateLost', me, Math.abs(before.mate)));
 
   const reply = after.terminal ? [] : playLine(S.fens[i + 1], after.pv, 12);
   if (!after.terminal) {
     const mA = mateSide(after, pov);
-    if (mA === -1) say.push(`<b>${k.tag === 'mateCreated' ? 'Artık mat kaçınılmaz: ' : ''}${opp} ${Math.abs(after.mate)} hamlede mat ediyor.</b>`);
-    else if (mA === 1 && k.tag !== 'mateLost') say.push(`${me} mat yolunda: ${Math.abs(after.mate)} hamlede zorlayıcı mat var.`);
+    if (mA === -1) say.push(tx('mated', k.tag === 'mateCreated', opp, Math.abs(after.mate)));
+    else if (mA === 1 && k.tag !== 'mateLost') say.push(tx('mating', me, Math.abs(after.mate)));
     if (BAD.has(k.c) || k.c === 'good') {
       const r0 = reply[0];
       if (r0) {
-        if (r0.mv.captured) say.push(`${opp} için en iyi cevap <b>${esc(r0.san)}</b>: ${pieceAt(r0.mv.to, r0.mv.captured)} alınıyor.`);
-        else if (r0.san.includes('+')) say.push(`${opp} için en iyi cevap <b>${esc(r0.san)}</b>, şah çekerek inisiyatifi alıyor.`);
-        else say.push(`${opp} için en iyi cevap <b>${esc(r0.san)}</b>.`);
+        if (r0.mv.captured) say.push(tx('replyCap', opp, esc(r0.san), pieceAt(r0.mv.to, r0.mv.captured)));
+        else if (r0.san.includes('+')) say.push(tx('replyCheck', opp, esc(r0.san)));
+        else say.push(tx('reply', opp, esc(r0.san)));
       }
       const hang = BAD.has(k.c) ? hanging(S.fens[i + 1], m.color).filter(h => !(r0 && r0.mv.to === h.sq)) : [];
-      if (hang.length) say.push(`Dikkat: ${pieceAt(hang[0].sq, hang[0].type)} alınabilir durumda (rakip yaklaşık ${hang[0].gain} puan kazanır).`);
+      if (hang.length) say.push(tx('hanging', pieceAt(hang[0].sq, hang[0].type), hang[0].gain));
       const loss = reply.length ? -lineMaterial(S.fens[i + 1], reply, m.color) : 0;
-      if (loss >= 2 && mA !== -1) say.push(`Motorun devam varyantında taş alışverişi bittiğinde ${me} yaklaşık <b>${loss} puan</b> materyal kaybetmiş oluyor.`);
-      else if (BAD.has(k.c) && mA === 0 && !hang.length && !(r0 && r0.mv.captured)) say.push('Doğrudan taş kaybı yok; ama pozisyon zayıfladı (taş aktivitesi, şah güvenliği veya piyon yapısı açısından).');
+      if (loss >= 2 && mA !== -1) say.push(tx('loss', me, loss));
+      else if (BAD.has(k.c) && mA === 0 && !hang.length && !(r0 && r0.mv.captured)) say.push(tx('noLoss'));
     }
   }
   const sp = S.time ? S.time.spent[i] : null;
   if (sp != null && BAD.has(k.c)) {
     const left = S.time.clocks[i], avg = avgSpent(m.color);
-    if (S.time.base && left != null && left < S.time.base * 0.1) say.push(`Zaman baskısı vardı: hamleden sonra saatte ${fmtClock(left)} kalmıştı.`);
-    else if (sp < 5) say.push(`Bu hamle ${fmtSec(sp)} içinde oynandı; acele kaynaklı bir hata olabilir.`);
-    else if (sp >= 30 && avg && sp > 3 * avg) say.push(`Bu hamleye ${fmtSec(sp)} harcandı (ortalamanın ${Math.round(sp / avg)} katı); uzun düşünülmesine rağmen hesap yanlış çıktı.`);
+    if (S.time.base && left != null && left < S.time.base * 0.1) say.push(tx('timePressure', fmtClock(left)));
+    else if (sp < 5) say.push(tx('hasty', fmtSec(sp)));
+    else if (sp >= 30 && avg && sp > 3 * avg) say.push(tx('slow', fmtSec(sp), Math.round(sp / avg)));
   }
   if (say.length) out.push(`<p>${say.join(' ')}</p>`);
-  if (BAD.has(k.c)) out.push(`<div class="rbtns"><button class="btn" type="button" data-retryone="${i}">↺ Bu pozisyonda tekrar dene</button></div>`);
+  if (BAD.has(k.c)) out.push(`<div class="rbtns"><button class="btn" type="button" data-retryone="${i}">${tx('retryHere')}</button></div>`);
 
   const uci = m.from + m.to + (m.promotion || '');
   if (before.best && !NO_BETTER.has(k.c) && uci !== before.best) {
     const bl = playLine(S.fens[i], before.pv, 12), b0 = bl[0];
     if (b0) {
       const why = [], mB = mateSide(before, pov);
-      if (mB === 1) why.push(`<b>${esc(b0.san)}</b> ile ${Math.abs(before.mate)} hamlede mat vardı!`);
-      else if (b0.mv.captured) why.push(`<b>${esc(b0.san)}</b> ile ${pieceAt(b0.mv.to, b0.mv.captured)} alınabilirdi.`);
-      else if (b0.san.includes('+')) why.push(`<b>${esc(b0.san)}</b> şah çekerek baskı kuruyordu.`);
-      else why.push(`Daha iyisi <b>${esc(b0.san)}</b> idi.`);
+      if (mB === 1) why.push(tx('whyMate', esc(b0.san), Math.abs(before.mate)));
+      else if (b0.mv.captured) why.push(tx('whyCap', esc(b0.san), pieceAt(b0.mv.to, b0.mv.captured)));
+      else if (b0.san.includes('+')) why.push(tx('whyCheck', esc(b0.san)));
+      else why.push(tx('whyBetter', esc(b0.san)));
       if (mB !== 1) {
         const played = [{ san: m.san, fen: S.fens[i + 1], mv: m }, ...reply];
         const diff = lineMaterial(S.fens[i], bl, m.color) - lineMaterial(S.fens[i], played, m.color);
-        if (diff >= 2) why.push(`Bu varyant, oynanan hamleye göre yaklaşık ${diff} puan daha fazla materyal bırakıyordu.`);
+        if (diff >= 2) why.push(tx('whyMat', diff));
       }
-      why.push(`Değerlendirme ${fmtEval(before)} olurdu; oynanan hamleden sonra ${fmtEval(after)}.`);
-      const lk = regLine(S.fens[i], bl, `Daha iyisi: ${b0.san}`);
-      out.push(`<div class="sec"><h3><span style="color:${ARROW.better}">● Daha iyi hamle</span><button class="chip" type="button" data-play="${lk}">Tahtada oynat ▶</button></h3><p>${why.join(' ')}</p>${lineHtml(S.lines[lk], 'data-line', lk)}</div>`);
+      why.push(tx('whyEval', fmtEval(before), fmtEval(after)));
+      const lk = regLine(S.fens[i], bl, tx('betterTitle', b0.san));
+      out.push(`<div class="sec"><h3><span style="color:${ARROW.better}">● ${tx('legBetter')}</span><button class="chip" type="button" data-play="${lk}">${tx('playOnBoard')}</button></h3><p>${why.join(' ')}</p>${lineHtml(S.lines[lk], 'data-line', lk)}</div>`);
     }
   }
   if (reply.length) {
-    const lk = regLine(S.fens[i + 1], reply, 'Oynanan hamleden sonra en iyi devam');
-    const title = BAD.has(k.c) ? `<span style="color:${ARROW.threat}">● Bu hamle neye sebep oldu</span>` : `<span style="color:${ARROW.plan}">● Beklenen devam</span>`;
-    out.push(`<div class="sec"><h3>${title}<button class="chip" type="button" data-play="${lk}">Tahtada oynat ▶</button></h3>${lineHtml(S.lines[lk], 'data-line', lk)}</div>`);
+    const lk = regLine(S.fens[i + 1], reply, tx('bestAfter'));
+    const title = BAD.has(k.c) ? `<span style="color:${ARROW.threat}">● ${tx('consequence')}</span>` : `<span style="color:${ARROW.plan}">● ${tx('expected')}</span>`;
+    out.push(`<div class="sec"><h3>${title}<button class="chip" type="button" data-play="${lk}">${tx('playOnBoard')}</button></h3>${lineHtml(S.lines[lk], 'data-line', lk)}</div>`);
   }
-  out.push(`<p class="hint">İpucu: taşları sürükleyerek ya da tıklayarak bu pozisyonda kendi hamleni deneyebilirsin.</p>`);
+  out.push(`<p class="hint">${tx('tryHint')}</p>`);
   return out.join('');
 }
 
@@ -1037,36 +1226,36 @@ function renderCoach() {
   if (S.retry) { el.innerHTML = retryHtml(); return; }
   if (S.idx === 0) {
     const op = gameOpening();
-    let h = `<div class="coach-head"><div class="coach-icon" style="background:var(--accent);color:var(--accent-fg)">♞</div><div><div class="coach-title">Oyun incelemesi</div><div class="coach-sub">${esc(op || 'Başlangıç pozisyonu')}</div></div></div>`;
-    h += `<p>Hamleleri <b>→</b> tuşu veya ▶ ile tek tek ilerlet. Her hamlede ne yapıldığını, daha iyi hamlenin ne olduğunu ve o hamlenin neye sebep olduğunu burada göreceksin. Yeşil ok daha iyi hamleyi, kırmızı ok rakibin en iyi cevabını gösterir. Taşları sürükleyerek istediğin pozisyonda kendi fikrini de deneyebilirsin.</p>`;
+    let h = `<div class="coach-head"><div class="coach-icon" style="background:var(--accent);color:var(--accent-fg)">♞</div><div><div class="coach-title">${tx('reviewTitle')}</div><div class="coach-sub">${esc(op || tx('startPos'))}</div></div></div>`;
+    h += `<p>${tx('intro')}</p>`;
     const moments = [];
     S.cls.forEach((k, i) => { if (k && ['brilliant', 'great', 'blunder', 'mistake', 'miss'].includes(k.c)) moments.push(i); });
     if (moments.length) {
-      h += `<div class="sec"><h3>Kritik anlar</h3><div class="moments">` + moments.map(i => {
+      h += `<div class="sec"><h3>${tx('critical')}</h3><div class="moments">` + moments.map(i => {
         const k = S.cls[i];
         return `<button type="button" data-goto="${i + 1}"><span class="ico" style="background:${clsColor(k.c)}">${CLS[k.c].sym}</span><span style="font-family:var(--f-mono);font-weight:700">${esc(moveLabel(i))}</span><span class="muted">${CLS[k.c].label} · ${sideName(S.moves[i].color)}</span></button>`;
       }).join('') + `</div></div>`;
-    } else if (!S.done) h += `<p class="muted">Kritik anlar analiz bitince burada listelenecek.</p>`;
+    } else if (!S.done) h += `<p class="muted">${tx('criticalWait')}</p>`;
     if (S.done) {
       const bw = badMoves('w').length, bb = badMoves('b').length;
-      if (bw + bb) h += `<div class="sec"><h3>Hatalarından öğren</h3><p class="muted" style="margin:0 0 6px">Hata yaptığın pozisyonlara dön, doğru hamleyi kendin bulmaya çalış.</p><div class="rbtns">`
-        + (bw ? `<button class="btn" type="button" data-retryside="w">↺ ${esc(S.names.w)}: ${bw} hata</button>` : '')
-        + (bb ? `<button class="btn" type="button" data-retryside="b">↺ ${esc(S.names.b)}: ${bb} hata</button>` : '') + `</div></div>`;
+      if (bw + bb) h += `<div class="sec"><h3>${tx('learn')}</h3><p class="muted" style="margin:0 0 6px">${tx('learnHelp')}</p><div class="rbtns">`
+        + (bw ? `<button class="btn" type="button" data-retryside="w">↺ ${esc(S.names.w)}: ${tx('nErrors', bw)}</button>` : '')
+        + (bb ? `<button class="btn" type="button" data-retryside="b">↺ ${esc(S.names.b)}: ${tx('nErrors', bb)}</button>` : '') + `</div></div>`;
     }
     el.innerHTML = h;
     return;
   }
   const i = S.idx - 1, k = S.cls[i];
   if (!k) {
-    el.innerHTML = `<div class="coach-head"><div class="coach-icon" style="background:var(--c-forced)">…</div><div><div class="coach-title">${esc(moveLabel(i))}</div><div class="coach-sub">Bu hamle henüz analiz edilmedi, motor çalışıyor.</div></div></div>`;
+    el.innerHTML = `<div class="coach-head"><div class="coach-icon" style="background:var(--c-forced)">…</div><div><div class="coach-title">${esc(moveLabel(i))}</div><div class="coach-sub">${tx('notYet')}</div></div></div>`;
     return;
   }
   const side = sideName(S.moves[i].color);
   const sp = S.time ? S.time.spent[i] : null, left = S.time ? S.time.clocks[i] : null;
-  const tTxt = sp != null ? ` · ⏱ ${fmtSec(sp)}${left != null ? ' (kalan ' + fmtClock(left) + ')' : ''}` : '';
+  const tTxt = sp != null ? ` · ⏱ ${fmtSec(sp)}${left != null ? tx('left', fmtClock(left)) : ''}` : '';
   el.innerHTML = `<div class="coach-head"><div class="coach-icon" style="background:${clsColor(k.c)}">${CLS[k.c].sym}</div><div style="min-width:0">
     <div class="coach-title">${esc(moveLabel(i))} <span style="color:${clsColor(k.c)}">${CLS[k.c].label}</span></div>
-    <div class="coach-sub">${side} · ${fmtEval(S.evals[i])} → ${fmtEval(S.evals[i + 1])} · ${side} için kazanma şansı %${Math.round(k.wpB)} → %${Math.round(k.wpA)} · hamle isabeti %${Math.round(k.acc)}${tTxt}</div></div></div>` + explain(i);
+    <div class="coach-sub">${tx('coachSub', side, fmtEval(S.evals[i]), fmtEval(S.evals[i + 1]), Math.round(k.wpB), Math.round(k.wpA), Math.round(k.acc))}${tTxt}</div></div></div>` + explain(i);
 }
 
 function renderLiveCard() {
@@ -1076,20 +1265,20 @@ function renderLiveCard() {
   S.liveLines = [];
   const { fen } = current();
   const e = evalOf(fen);
-  let h = `<h2><span>Canlı motor</span><span class="eyebrow">${e && e.terminal ? 'oyun bitti' : e && e.depth ? 'derinlik ' + e.depth + (e.final === false ? ' · düşünüyor' : '') : 'düşünüyor…'}</span></h2>`;
+  let h = `<h2><span>${tx('liveEngine')}</span><span class="eyebrow">${e && e.terminal ? tx('gameOver') : e && e.depth ? tx('depthN', e.depth) + (e.final === false ? ' · ' + tx('thinking') : '') : tx('thinking') + '…'}</span></h2>`;
   if (V.idx > 0) {
     const it = V.items[V.idx - 1], k = variationMoveCls();
     const fb = V.idx === 1 ? V.startFen : V.items[V.idx - 2].fen;
     h += k
       ? `<p class="vfeed"><span class="ico" style="background:${clsColor(k.c)}">${CLS[k.c].sym}</span><span><b>${esc(it.san)}</b>: ${CLS[k.c].label} · ${fmtEval(evalOf(fb))} → ${fmtEval(evalOf(it.fen))}</span></p>`
-      : `<p class="vfeed muted">${esc(it.san)} değerlendiriliyor…</p>`;
+      : `<p class="vfeed muted">${tx('evaluating', esc(it.san))}</p>`;
   }
-  if (e && e.terminal) h += `<p>${e.terminal === 'mate' ? 'Şah mat.' : 'Berabere.'}</p>`;
+  if (e && e.terminal) h += `<p>${e.terminal === 'mate' ? tx('mateShort') : tx('drawShort')}</p>`;
   else if (e && e.lines) {
     h += e.lines.map(L => {
       const items = playLine(fen, L.pv, 10);
       if (!items.length) return '';
-      S.liveLines.push({ startFen: fen, items, title: 'Motor önerisi' });
+      S.liveLines.push({ startFen: fen, items, title: tx('engineLine') });
       const k = S.liveLines.length - 1;
       return `<div class="lrow"><span class="ev">${fmtEval(L)}</span>${lineHtml(S.liveLines[k], 'data-lline', k)}</div>`;
     }).join('');
@@ -1154,7 +1343,7 @@ function renderTimeBars() {
   });
   const cx = S.idx / n * W;
   svg += `<line x1="${cx}" x2="${cx}" y1="0" y2="${H}" stroke="var(--accent)" stroke-width="2"/>`;
-  el.innerHTML = `<div class="eyebrow tb-cap">Düşünme süresi · üstte Beyaz, altta Siyah · renkli çubuk = hatalı hamle</div>` + svg + '</svg>';
+  el.innerHTML = `<div class="eyebrow tb-cap">${tx('timeCap')}</div>` + svg + '</svg>';
 }
 
 function renderSummary() {
@@ -1165,12 +1354,12 @@ function renderSummary() {
   const fmt = v => v == null ? '–' : v.toFixed(1);
   const num = (col, c) => { const v = cnt[col][c] || 0; return `<td class="num" style="color:${v && BAD.has(c) ? clsColor(c) : 'inherit'}">${v}</td>`; };
   const rows = CLS_ORDER.map(c => `<tr><td class="lab"><span class="ico" style="background:${clsColor(c)}">${CLS[c].sym}</span>${CLS[c].label}</td>${num('w', c)}${num('b', c)}</tr>`).join('');
-  el.innerHTML = `<h2><span>Özet</span><span class="eyebrow">${S.done ? 'analiz tamam' : 'analiz sürüyor'}</span></h2>
-    <div class="acc"><div><div class="k">♔ ${esc(S.names.w)}</div><div class="v">${fmt(acc.w)}</div><div class="k">isabet</div></div>
-    <div><div class="k">♚ ${esc(S.names.b)}</div><div class="v">${fmt(acc.b)}</div><div class="k">isabet</div></div></div>
-    <table class="counts"><thead><tr><th></th><th>Beyaz</th><th>Siyah</th></tr></thead><tbody>${rows}</tbody></table>
+  el.innerHTML = `<h2><span>${tx('summary')}</span><span class="eyebrow">${S.done ? tx('anaDone') : tx('anaRun')}</span></h2>
+    <div class="acc"><div><div class="k">♔ ${esc(S.names.w)}</div><div class="v">${fmt(acc.w)}</div><div class="k">${tx('accuracy')}</div></div>
+    <div><div class="k">♚ ${esc(S.names.b)}</div><div class="v">${fmt(acc.b)}</div><div class="k">${tx('accuracy')}</div></div></div>
+    <table class="counts"><thead><tr><th></th><th>${tx('white')}</th><th>${tx('black')}</th></tr></thead><tbody>${rows}</tbody></table>
     ${timeStats()}
-    <p class="hint">İsabet, lichess'in formülüyle hesaplanır: kritik anlardaki hamleler daha ağır basar.</p>`;
+    <p class="hint">${tx('accHint')}</p>`;
 }
 function timeStats() {
   if (!S.time) return '';
@@ -1178,7 +1367,7 @@ function timeStats() {
     const idx = S.time.spent.map((x, i) => [x, i]).filter(([x, i]) => x != null && S.moves[i].color === col);
     if (!idx.length) return '<span>–</span><span></span>';
     const avg = idx.reduce((p, [x]) => p + x, 0) / idx.length, long = idx.reduce((a, b) => b[0] > a[0] ? b : a);
-    return `<span>${sideName(col)} ort. düşünme: <b>${fmtSec(avg)}</b></span><span>En uzun: <b>${esc(moveLabel(long[1]))}</b> (${fmtSec(long[0])})</span>`;
+    return `<span>${tx('avgThink', sideName(col), fmtSec(avg))}</span><span>${tx('longest', esc(moveLabel(long[1])), fmtSec(long[0]))}</span>`;
   };
   return `<div class="tstat">${row('w')}${row('b')}</div>`;
 }
@@ -1187,7 +1376,7 @@ function renderPlayers() {
   const h = S.headers;
   const elo = x => x ? ` (${esc(x)})` : '';
   const op = gameOpening();
-  const meta = [h.Event, h.Date && h.Date.replace(/\.\?\?/g, ''), h.TimeControl && 'Süre ' + h.TimeControl, h.Result && h.Result !== '*' && 'Sonuç ' + h.Result, op].filter(Boolean).map(esc).join(' · ');
+  const meta = [h.Event, h.Date && h.Date.replace(/\.\?\?/g, ''), h.TimeControl && tx('tc', h.TimeControl), h.Result && h.Result !== '*' && tx('result', h.Result), op].filter(Boolean).map(esc).join(' · ');
   $('#players').innerHTML = `<b>♔ ${esc(S.names.w)}</b>${elo(h.WhiteElo)} &nbsp;vs&nbsp; <b>♚ ${esc(S.names.b)}</b>${elo(h.BlackElo)}<br>${meta}`;
 }
 
@@ -1195,10 +1384,10 @@ function renderVarbar() {
   const V = S.variation, el = $('#varbar');
   if (!V) { el.hidden = true; return; }
   el.hidden = false;
-  el.innerHTML = `<span class="grow"><b>${V.user ? 'Kendi denemen' : 'Varyant'}:</b> ${esc(V.title)} · ${V.idx}/${V.items.length}</span>
+  el.innerHTML = `<span class="grow"><b>${V.user ? tx('ownTry') : tx('variation')}:</b> ${esc(V.title)} · ${V.idx}/${V.items.length}</span>
     <button class="btn" type="button" data-var="prev">◀</button><button class="btn" type="button" data-var="next">▶</button>
-    <button class="btn" type="button" data-var="auto">${V.timer ? '⏸ Durdur' : '▶ Otomatik'}</button>
-    <button class="btn primary" type="button" data-var="exit">Ana oyuna dön</button>`;
+    <button class="btn" type="button" data-var="auto">${V.timer ? tx('pause') : tx('auto')}</button>
+    <button class="btn primary" type="button" data-var="exit">${tx('backMain')}</button>`;
   document.querySelectorAll('.line button[data-line]').forEach(b => b.classList.toggle('on', S.lines[+b.dataset.line] === V.src && +b.dataset.step === V.idx));
 }
 
@@ -1213,7 +1402,7 @@ function renderLive(i) {
   renderMoves(); renderGraph(); renderSummary();
   if (!S.variation && (S.idx === i || S.idx === i + 1 || S.idx === 0)) { renderBoard(); renderEval(); renderCoach(); }
 }
-function setProgress(f, txt) { $('#progBar').style.width = (f * 100).toFixed(1) + '%'; $('#progText').textContent = txt; }
+function setProgress(f, key, ...args) { S.prog = [f, key, args]; $('#progBar').style.width = (f * 100).toFixed(1) + '%'; $('#progText').textContent = tx(key, ...args); }
 
 /* ---------- Navigation ---------- */
 function clearSel() { S.sel = null; S.targets = []; }
@@ -1273,16 +1462,16 @@ function tryMove(from, to, promotion) {
   const V = S.variation;
   if (!V && S.idx < S.moves.length && S.ucis[S.idx] === uci) { go(S.idx + 1); return; }
   if (V && V.items[V.idx] && V.items[V.idx].uci === uci) { varStep(1); return; }
-  extendVariation([{ san: mv.san, uci, fen: c.fen(), mv, user: true }], 'kendi hamlelerin', true);
+  extendVariation([{ san: mv.san, uci, fen: c.fen(), mv, user: true }], tx('ownMoves'), true);
 }
 function renderPromo() {
   const el = $('#promo'), P = S.promo;
   if (!P) { el.hidden = true; el.innerHTML = ''; return; }
   el.hidden = false;
-  el.innerHTML = `<div class="promo-box"><div class="eyebrow">Piyon terfisi: taş seç</div><div class="promo-row">${['q', 'r', 'b', 'n'].map(t => `<button type="button" data-promo="${t}" title="${NAME[t]}">${pieceSvg(P.color, t)}</button>`).join('')}</div><button class="btn" type="button" data-promo="x">Vazgeç</button></div>`;
+  el.innerHTML = `<div class="promo-box"><div class="eyebrow">${tx('promoTitle')}</div><div class="promo-row">${['q', 'r', 'b', 'n'].map(t => `<button type="button" data-promo="${t}" title="${pieceName(t)}">${pieceSvg(P.color, t)}</button>`).join('')}</div><button class="btn" type="button" data-promo="x">${tx('cancel')}</button></div>`;
 }
 
-/* ---------- "Tekrar dene": find a better move where the game went wrong ---------- */
+/* ---------- "Try again": find a better move where the game went wrong ---------- */
 const badMoves = col => S.cls.map((k, i) => k && BAD.has(k.c) && S.moves[i].color === col ? i : -1).filter(i => i >= 0);
 function startRetry(i, queue) {
   stopAuto(); clearSel();
@@ -1296,19 +1485,19 @@ function startRetry(i, queue) {
 function retryHtml() {
   const R = S.retry, i = R.i, m = S.moves[i], k = S.cls[i], before = S.evals[i];
   const pos = R.queue.indexOf(i), nextI = R.queue[pos + 1];
-  let h = `<div class="coach-head"><div class="coach-icon" style="background:var(--c-great)">↺</div><div style="min-width:0"><div class="coach-title">Tekrar dene</div>
-    <div class="coach-sub">${R.queue.length > 1 ? `Hata ${pos + 1}/${R.queue.length} · ` : ''}Oyunda ${esc(moveLabel(i))} oynandı (${CLS[k.c].label})</div></div></div>`;
-  h += `<p><b>${sideName(m.color)}</b> oynuyor. Daha iyi bir hamle bul: taşı sürükle ya da tıkla.</p>`;
+  let h = `<div class="coach-head"><div class="coach-icon" style="background:var(--c-great)">↺</div><div style="min-width:0"><div class="coach-title">${tx('retryTitle')}</div>
+    <div class="coach-sub">${R.queue.length > 1 ? tx('mistakeN', pos + 1, R.queue.length) : ''}${tx('playedInGame', esc(moveLabel(i)), CLS[k.c].label)}</div></div></div>`;
+  h += `<p>${tx('toMove', sideName(m.color))}</p>`;
   if (R.msg) h += `<p class="rmsg ${R.msg.kind}">${R.msg.c ? `<span class="ico" style="background:${clsColor(R.msg.c)}">${CLS[R.msg.c].sym}</span>` : ''}<span>${R.msg.text}</span></p>`;
   if (R.hint && !R.solved && before.best) {
     const P = parseFen(S.fens[i]), sq = before.best.slice(0, 2);
-    h += `<p class="hint">İpucu: ${sq} karesindeki ${NAME[P[sq].type]} ile oyna.</p>`;
+    h += `<p class="hint">${tx('hintText', sq, pieceName(P[sq].type))}</p>`;
   }
   h += `<div class="rbtns">`;
-  if (!R.solved) h += `<button class="btn" type="button" data-retry="hint"${R.hint ? ' disabled' : ''}>İpucu</button><button class="btn" type="button" data-retry="solve">Çözümü göster</button>`;
-  if (nextI != null) h += `<button class="btn primary" type="button" data-retry="next">Sonraki hata ▶</button>`;
-  else if (R.solved && R.queue.length > 1) h += `<span class="muted" style="align-self:center">Tüm hataları bitirdin.</span>`;
-  h += `<button class="btn" type="button" data-retry="explain">Hamle açıklamasına dön</button></div>`;
+  if (!R.solved) h += `<button class="btn" type="button" data-retry="hint"${R.hint ? ' disabled' : ''}>${tx('hint')}</button><button class="btn" type="button" data-retry="solve">${tx('showSolution')}</button>`;
+  if (nextI != null) h += `<button class="btn primary" type="button" data-retry="next">${tx('nextMistake')}</button>`;
+  else if (R.solved && R.queue.length > 1) h += `<span class="muted" style="align-self:center">${tx('allDone')}</span>`;
+  h += `<button class="btn" type="button" data-retry="explain">${tx('backExplain')}</button></div>`;
   return h;
 }
 async function retryAttempt(mv, fenAfter) {
@@ -1317,11 +1506,11 @@ async function retryAttempt(mv, fenAfter) {
   const uci = mv.from + mv.to + (mv.promotion || '');
   R.tries++;
   if (uci === S.ucis[i]) {
-    R.msg = { kind: 'bad', text: `<b>${esc(mv.san)}</b> oyunda oynanan hamleydi. Başka bir hamle dene.` };
+    R.msg = { kind: 'bad', text: tx('wasPlayed', esc(mv.san)) };
     renderBoard(); renderCoach(); return;
   }
   R.tryFen = fenAfter; R.tryMv = mv; R.busy = true;
-  R.msg = { kind: 'wait', text: `<b>${esc(mv.san)}</b> değerlendiriliyor…` };
+  R.msg = { kind: 'wait', text: tx('evalWait', esc(mv.san)) };
   renderBoard(); renderCoach();
   let after = terminalOf(new Chess(fenAfter), false);
   if (!after && before.best && (uci === before.best || (!mv.promotion && uci === before.best.slice(0, 4)))) {
@@ -1336,18 +1525,18 @@ async function retryAttempt(mv, fenAfter) {
   }
   if (S.retry !== R) return;
   R.busy = false;
-  if (!after) { R.msg = { kind: 'bad', text: 'Motor bu hamleyi değerlendiremedi, tekrar dene.' }; R.tryFen = null; R.tryMv = null; renderBoard(); renderCoach(); return; }
+  if (!after) { R.msg = { kind: 'bad', text: tx('evalFail') }; R.tryFen = null; R.tryMv = null; renderBoard(); renderCoach(); return; }
   const k = classify({ fenBefore: S.fens[i], fenAfter, mv, before, after, prevMove: S.moves[i - 1], prevCls: S.cls[i - 1], allowBook: true });
   const evTxt = `${fmtEval(before)} → ${fmtEval(after)}`;
   if (['best', 'great', 'brilliant', 'excellent', 'book', 'forced'].includes(k.c)) {
     R.solved = true;
-    R.msg = { kind: 'ok', c: k.c, text: `<b>${esc(mv.san)}</b>: ${CLS[k.c].label}! ${R.tries === 1 ? 'İlk denemede buldun.' : R.tries + '. denemede buldun.'} (${evTxt})` };
+    R.msg = { kind: 'ok', c: k.c, text: `<b>${esc(mv.san)}</b>: ${CLS[k.c].label}! ${R.tries === 1 ? tx('foundFirst') : tx('foundN', R.tries)} (${evTxt})` };
   } else {
     const r0 = !after.terminal && after.pv && after.pv.length ? playLine(fenAfter, after.pv, 1)[0] : null;
     R.msg = {
       kind: k.c === 'good' ? 'meh' : 'bad', c: k.c,
-      text: `<b>${esc(mv.san)}</b>: ${CLS[k.c].label} (${evTxt}).` + (k.c === 'good' ? ' Fena değil ama daha güçlüsü var.' : '')
-        + (r0 ? ` Rakip <b>${esc(r0.san)}</b> ile cevap verirdi.` : '') + ' Tekrar dene.',
+      text: `<b>${esc(mv.san)}</b>: ${CLS[k.c].label} (${evTxt}).` + (k.c === 'good' ? tx('notBad') : '')
+        + (r0 ? tx('oppReply', esc(r0.san)) : '') + tx('tryAgain'),
     };
     R.tryFen = null; R.tryMv = null;
   }
@@ -1358,7 +1547,7 @@ function retryAction(a) {
   if (a === 'hint') { R.hint = true; renderBoard(); renderCoach(); }
   else if (a === 'solve') {
     const i = R.i;
-    openVariation({ startFen: S.fens[i], items: playLine(S.fens[i], S.evals[i].pv, 12), title: 'Çözüm' }, 1);
+    openVariation({ startFen: S.fens[i], items: playLine(S.fens[i], S.evals[i].pv, 12), title: tx('solution') }, 1);
   }
   else if (a === 'next') { const q = R.queue; startRetry(q[q.indexOf(R.i) + 1], q); }
   else if (a === 'explain') go(R.i + 1);
@@ -1419,7 +1608,7 @@ document.addEventListener('click', e => {
   else if (t.dataset.line != null) openVariation(S.lines[+t.dataset.line], +t.dataset.step);
   else if (t.dataset.lline != null) {
     const L = S.liveLines[+t.dataset.lline], st = +t.dataset.step;
-    extendVariation(L.items, 'motor önerisi', false);
+    extendVariation(L.items, tx('engineLine'), false);
     varStep(st - 1);
   }
   else if (t.dataset.var === 'prev') { stopAuto(); varStep(-1); }
@@ -1462,7 +1651,7 @@ function openLoader() { renderRecent(); $('#overlay').hidden = false; $('#loadEr
 function renderRecent() {
   const r = Store.recent(), el = $('#recent');
   if (!r.length) { el.innerHTML = ''; return; }
-  el.innerHTML = `<div class="eyebrow">Son oyunlar · analizleri bu tarayıcıda kayıtlı</div><div class="recent">` + r.map((x, k) =>
+  el.innerHTML = `<div class="eyebrow">${tx('recent')}</div><div class="recent">` + r.map((x, k) =>
     `<button type="button" data-recent="${k}"><b>${esc(x.w)}</b> – <b>${esc(x.b)}</b> <span class="muted">${esc([x.result, (x.date || '').replace(/\.\?\?/g, '')].filter(Boolean).join(' · '))}</span></button>`).join('') + `</div>`;
 }
 function closeLoader() { $('#overlay').hidden = true; }
@@ -1473,7 +1662,7 @@ $('#sampleBtn').onclick = () => { $('#pgnIn').value = SAMPLE; };
 $('#loaderForm').addEventListener('submit', e => {
   e.preventDefault();
   const txt = $('#pgnIn').value.trim();
-  if (!txt) { showErr('Önce bir PGN yapıştır ya da dosya seç.'); return; }
+  if (!txt) { showErr(tx('noPgn')); return; }
   try { loadGame(txt, $('#depthSel').value); closeLoader(); } catch (err) { showErr(err.message); }
 });
 function showErr(m) { const el = $('#loadErr'); el.textContent = m; el.hidden = false; }
@@ -1493,8 +1682,10 @@ document.addEventListener('paste', e => {
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { }));
 }
+document.querySelectorAll('[data-lang]').forEach(b => { b.onclick = () => setLang(b.dataset.lang); });
 (function boot() {
   buildSprite();
+  applyLang();
   let pgn = SAMPLE;
   const r = Store.recent();
   if (r.length && r[0].pgn) pgn = r[0].pgn;

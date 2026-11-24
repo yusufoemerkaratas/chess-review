@@ -1,12 +1,12 @@
 {
-  "name": "Satranç Oyun İnceleme",
-  "short_name": "Oyun İnceleme",
-  "description": "PGN yükle, Stockfish her hamleyi analiz etsin.",
+  "name": "Chess Game Review",
+  "short_name": "Game Review",
+  "description": "Load a PGN and let Stockfish analyze every move.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#141917",
   "theme_color": "#1d2420",
-  "lang": "tr",
+  "lang": "en",
   "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
 }

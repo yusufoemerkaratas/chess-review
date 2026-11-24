@@ -4,7 +4,7 @@
 set -euo pipefail
 HOST="${1:-yusuf@100.122.73.118}"
 KEY="$HOME/.ssh/ubuntu-server-ed25519"
-DIR="satranc-inceleme"
+DIR="chess-review"
 cd "$(dirname "$0")/.."
 SSH=(ssh -i "$KEY" -o UserKnownHostsFile="$HOME/.ssh/ubuntu-server-known-hosts" -o StrictHostKeyChecking=yes)
 
@@ -15,4 +15,4 @@ rsync -az --delete -e "${SSH[*]}" \
   vendor fonts "$HOST:~/$DIR/site/"
 rsync -az -e "${SSH[*]}" deploy/docker-compose.yml "$HOST:~/$DIR/deploy/"
 "${SSH[@]}" "$HOST" "cd ~/$DIR/deploy && docker compose up -d && docker compose ps"
-echo "Hazır: http://${HOST#*@}:8088"
+echo "Ready: http://${HOST#*@}:8088"

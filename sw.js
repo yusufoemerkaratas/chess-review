@@ -1,6 +1,6 @@
 // Caches every file the app needs, so after the first visit it opens and analyzes without internet.
 // Bump CACHE when files change; the next visit then picks up the new version.
-const CACHE = 'satranc-inceleme-v1';
+const CACHE = 'chess-review-v2';
 const ASSETS = [
   './',
   'index.html',

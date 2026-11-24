@@ -1,39 +1,40 @@
-# Satranç Oyun İnceleme
+# Chess Game Review
 
-chess.com'daki oyun incelemesine benzer, tamamen tarayıcıda çalışan bir analiz ekranı.
-PGN'i yapıştır; Stockfish 17.1 her hamleyi senin bilgisayarında analiz eder, sunucuya hiçbir şey gönderilmez.
+A game review screen similar to chess.com's, running entirely in the browser.
+Paste a PGN; Stockfish 17.1 analyzes every move on your own computer, nothing is sent to a server.
 
-- Hamle sınıfları (Muhteşem, Harika, En İyi, Teorik … Büyük Hata), daha iyi hamle ve "bu hamle neye sebep oldu" açıklamaları
-- Tahtada oklar, varyant oynatma, taş sürükleyerek kendi hamleni deneme + canlı motor
-- "Tekrar dene": hata yaptığın pozisyonda doğru hamleyi kendin bul
-- Saat bilgisi olan PGN'lerde düşünme süresi analizi
-- lichess formülüyle isabet, gerçek açılış kitabı (lichess chess-openings)
-- Analizler tarayıcıda saklanır; ilk açılıştan sonra internetsiz de çalışır
+- Move classes (Brilliant, Great, Best, Book … Blunder), the better move and "what this move led to" explanations
+- Arrows on the board, playing through variations, dragging pieces to try your own moves + live engine
+- "Try again": find the right move yourself in the positions where you went wrong
+- Thinking-time analysis for PGNs with clock data
+- Accuracy with the lichess formula, a real opening book (lichess chess-openings)
+- English and Turkish interface (EN/TR switch in the header)
+- Analyses are stored in the browser; after the first visit it also works offline
 
-## Çalıştırma
+## Running
 
-Statik dosyalardan ibaret; herhangi bir web sunucusu yeter (Web Worker'lar `file://` ile çalışmaz):
-
-```sh
-python3 -m http.server 8000   # sonra http://localhost:8000
-```
-
-Ev sunucusuna Docker ile kurulum (nginx, `restart: unless-stopped`, port 8088):
+Static files only; any web server will do (Web Workers do not run from `file://`):
 
 ```sh
-deploy/deploy.sh                # varsayılan: yusuf@100.122.73.118
+python3 -m http.server 8000   # then open http://localhost:8000
 ```
 
-## Dosyalar
+Install on a home server with Docker (nginx, `restart: unless-stopped`, port 8088):
 
-| Dosya | Ne |
+```sh
+deploy/deploy.sh                # default: yusuf@100.122.73.118
+```
+
+## Files
+
+| File | Purpose |
 |---|---|
-| `index.html` | Uygulamanın tamamı |
-| `sw.js`, `manifest.webmanifest`, `icon.svg` | Çevrimdışı çalışma ve "uygulama olarak yükle" |
-| `stockfish-17.1-lite-single-*.js/.wasm` | Ana motor |
-| `stockfish.js` | Yedek motor (Stockfish 10, WebAssembly'nin engellendiği ortamlar için) |
-| `openings.json` | Açılış kitabı (pozisyon özetleri) |
-| `vendor/chess.min.js` | Hamle kuralları (chess.js 0.10.3) |
+| `index.html` | The whole app, including the EN/TR texts |
+| `sw.js`, `manifest.webmanifest`, `icon.svg` | Offline use and "install as app" |
+| `stockfish-17.1-lite-single-*.js/.wasm` | Main engine |
+| `stockfish.js` | Fallback engine (Stockfish 10, for environments that block WebAssembly) |
+| `openings.json` | Opening book (position digests) |
+| `vendor/chess.min.js` | Move rules (chess.js 0.10.3) |
 | `fonts/` | Inter, Space Grotesk, JetBrains Mono |
 
-Üçüncü taraf lisansları için `LICENSES.md`.
+See `LICENSES.md` for third-party licenses.
