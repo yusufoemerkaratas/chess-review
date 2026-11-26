@@ -54,6 +54,9 @@ button { cursor: pointer }
 .lang { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden }
 .lang button { border: 0; background: var(--surface); padding: 7px 10px; font-weight: 600; font-size: 12px; color: var(--muted) }
 .lang button.on { background: var(--surface-2); color: var(--fg) }
+.loader input[type="text"] { border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); padding: 7px 10px; flex: 1 1 140px; min-width: 0 }
+.loader .sec { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 8px }
+.loader .sec h3 { font-size: 14px }
 
 .progress { max-width: 1240px; margin: 0 auto 14px; display: flex; align-items: center; gap: 12px; font-size: 12.5px; color: var(--muted) }
 .progress .bar { flex: 1; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden }
@@ -202,6 +205,7 @@ table.counts th { font-size: 11px; color: var(--muted); font-weight: 600; text-a
   <h1><span class="logo" aria-hidden="true">♞</span><span data-i18n="appName">Game Review</span></h1>
   <div class="players" id="players"></div>
   <div class="lang" role="group" aria-label="Language"><button type="button" data-lang="en">EN</button><button type="button" data-lang="tr">TR</button></div>
+  <button class="btn" id="openTraining" type="button" data-i18n="training">Training</button>
   <button class="btn primary" id="openLoader" type="button" data-i18n="loadPgn">Load PGN</button>
 </header>
 <div class="progress" id="progress"><span id="progText">Preparing engine…</span><div class="bar"><i id="progBar"></i></div></div>
@@ -273,6 +277,9 @@ table.counts th { font-size: 11px; color: var(--muted); font-weight: 600; text-a
       <button class="btn" type="button" id="closeLoader" data-i18n="close">Close</button>
     </div>
   </form>
+</div>
+<div class="overlay" id="trainOverlay" hidden>
+  <div class="loader" id="trainBox"></div>
 </div>
 
 <script>
@@ -417,6 +424,26 @@ const I18N = {
     foundFirst: 'Found on the first try.', foundN: n => `Found on try ${n}.`,
     notBad: ' Not bad, but there is something stronger.', oppReply: san => ` The opponent would reply <b>${san}</b>.`, tryAgain: ' Try again.',
     solution: 'Solution', recent: 'Recent games · analyses saved in this browser',
+    training: 'Training', trTitle: 'Training',
+    meLichess: 'lichess username', meChesscom: 'chess.com username',
+    meHelp: 'Puzzles and statistics use only your own moves: games where White or Black has one of these names. Everything stays in this browser.',
+    impTitle: 'Import games', impBtn: 'Import my last 10 lichess games',
+    impHelp: 'Finished standard games only; games imported before are skipped. Each game is analyzed in this tab (Balanced), which can take a few minutes per game, so keep the tab open.',
+    impFetching: 'Fetching games from lichess…', impNone: 'No new games to import.', impFail: e => `Could not fetch games: ${e}`,
+    impQueued: n => `${n} new games queued; the analysis is running.`, impDone: n => `Import finished: ${n} games analyzed.`,
+    impPrefix: (i, n) => `Import ${i}/${n} · `,
+    puzTitle: 'Puzzles from your mistakes',
+    puzHelp: 'Your mistakes, blunders and misses. Solve a puzzle on the first try without a hint and it comes back after 1, 3, 7 and then 21 days (after that it counts as learned); otherwise it comes back tomorrow.',
+    puzStart: 'Start puzzles', puzDue: (d, t, l) => `${d} due today · ${t} in total · ${l} learned`,
+    puzN: (i, n) => `Puzzle ${i}/${n}`, puzNext: 'Next puzzle ▶', puzSolution: san => `Solution: <b>${san}</b>. This puzzle comes back tomorrow.`,
+    stTitle: n => `Your mistakes in the last ${n} games`,
+    stNone: 'No games yet. Enter your username, then review or import games.',
+    stSummary: (g, acc, bad, per) => `${g} games · average accuracy ${acc} · ${bad} mistakes (${per} per game)`,
+    stCount: 'mistakes', stShare: 'share',
+    st_hanging: 'Left a piece that could be won', st_miss: "Missed the chance after the opponent's mistake", st_mateLost: 'Missed a forced mate',
+    st_time: 'Under time pressure (less than 10% of the clock left)', st_opening: 'In the opening (moves 1–12)', st_middlegame: 'In the middlegame',
+    st_endgame: 'In the endgame (20 points or less of pieces left, pawns not counted)',
+    stHint: 'Counted: mistakes, blunders and misses. One mistake can appear in several of the first four rows; the last three rows add up to the total.',
   },
   tr: {
     title: 'Satranç Oyun İnceleme',
@@ -503,6 +530,26 @@ const I18N = {
     foundFirst: 'İlk denemede buldun.', foundN: n => `${n}. denemede buldun.`,
     notBad: ' Fena değil ama daha güçlüsü var.', oppReply: san => ` Rakip <b>${san}</b> ile cevap verirdi.`, tryAgain: ' Tekrar dene.',
     solution: 'Çözüm', recent: 'Son oyunlar · analizleri bu tarayıcıda kayıtlı',
+    training: 'Antrenman', trTitle: 'Antrenman',
+    meLichess: 'lichess kullanıcı adı', meChesscom: 'chess.com kullanıcı adı',
+    meHelp: 'Bulmacalar ve istatistik sadece senin hamlelerini kullanır: Beyaz veya Siyah\'ın adı bunlardan biri olan oyunlar. Her şey bu tarayıcıda kalır.',
+    impTitle: 'Oyunları içe aktar', impBtn: 'Son 10 lichess oyunumu içe aktar',
+    impHelp: 'Sadece bitmiş standart oyunlar; daha önce aktarılanlar atlanır. Her oyun bu sekmede analiz edilir (Dengeli), oyun başına birkaç dakika sürebilir, sekmeyi açık tut.',
+    impFetching: 'Oyunlar lichess\'ten alınıyor…', impNone: 'Aktarılacak yeni oyun yok.', impFail: e => `Oyunlar alınamadı: ${e}`,
+    impQueued: n => `${n} yeni oyun sıraya alındı; analiz sürüyor.`, impDone: n => `Aktarım bitti: ${n} oyun analiz edildi.`,
+    impPrefix: (i, n) => `Aktarım ${i}/${n} · `,
+    puzTitle: 'Hatalarından bulmacalar',
+    puzHelp: 'Hata, büyük hata ve kaçırılan fırsatların. Bir bulmacayı ipucusuz ilk denemede çözersen 1, 3, 7 ve sonra 21 gün sonra tekrar gelir (ondan sonra öğrenildi sayılır); çözemezsen ertesi gün tekrar gelir.',
+    puzStart: 'Bulmacalara başla', puzDue: (d, t, l) => `bugün ${d} bulmaca · toplam ${t} · ${l} öğrenildi`,
+    puzN: (i, n) => `Bulmaca ${i}/${n}`, puzNext: 'Sonraki bulmaca ▶', puzSolution: san => `Çözüm: <b>${san}</b>. Bu bulmaca yarın tekrar gelecek.`,
+    stTitle: n => `Son ${n} oyundaki hataların`,
+    stNone: 'Henüz oyun yok. Kullanıcı adını yaz, sonra oyun incele veya içe aktar.',
+    stSummary: (g, acc, bad, per) => `${g} oyun · ortalama isabet ${acc} · ${bad} hata (oyun başına ${per})`,
+    stCount: 'hata', stShare: 'pay',
+    st_hanging: 'Kazanılabilecek bir taş bıraktın', st_miss: 'Rakibin hatasından sonraki fırsatı kaçırdın', st_mateLost: 'Zorlayıcı matı kaçırdın',
+    st_time: 'Zaman baskısında (saatte %10\'dan az süre)', st_opening: 'Açılışta (1–12. hamleler)', st_middlegame: 'Orta oyunda',
+    st_endgame: 'Oyun sonunda (piyonlar hariç 20 puan veya daha az taş)',
+    stHint: 'Sayılanlar: hata, büyük hata ve kaçırılan fırsatlar. Bir hata ilk dört satırın birkaçında birden olabilir; son üç satırın toplamı toplam hataya eşittir.',
   },
 };
 let LANG = 'en';
@@ -523,6 +570,7 @@ function setLang(l) {
   applyLang();
   renderAll();
   if (!$('#overlay').hidden) renderRecent();
+  if (!$('#trainOverlay').hidden) renderTraining();
   if (S.prog) setProgress(S.prog[0], S.prog[1], ...S.prog[2]);
 }
 
@@ -901,7 +949,7 @@ function loadGame(text, budget) {
   Object.assign(S, {
     headers: g.headers, moves: g.moves, fens: g.fens, ucis: g.ucis, term: g.term, time: timeInfo(g.headers, g.clocks, g.moves.length),
     flipped: S.retry ? S.retry.prevFlip : S.flipped,
-    evals: [], cls: [], idx: 0, variation: null, retry: null, promo: null, done: false, sel: null, targets: [], budget: budget || S.budget,
+    evals: [], cls: [], idx: 0, variation: null, retry: null, promo: null, puzzle: null, done: false, sel: null, targets: [], budget: budget || S.budget,
   });
   S.gameKey = fnv(g.fens.join('|'));
   S.fenIdx = new Map(); g.fens.forEach((f, i) => { if (!S.fenIdx.has(f)) S.fenIdx.set(f, i); });
@@ -937,6 +985,7 @@ async function analyzeAll(run) {
     S.done = true;
     setProgress(1, 'progCached', S.moves.length, S.budget, Main.info.name);
     renderAll();
+    onAnalyzed();
     return;
   }
   Main.send('ucinewgame'); await Main.sync();
@@ -960,6 +1009,7 @@ async function analyzeAll(run) {
   Store.set(cacheKey, S.evals.map(packEval));
   setProgress(1, 'progDone', n - 1, S.budget, Main.info.name);
   renderAll();
+  onAnalyzed();
 }
 
 function classifyMain(i) {
@@ -1402,7 +1452,7 @@ function renderLive(i) {
   renderMoves(); renderGraph(); renderSummary();
   if (!S.variation && (S.idx === i || S.idx === i + 1 || S.idx === 0)) { renderBoard(); renderEval(); renderCoach(); }
 }
-function setProgress(f, key, ...args) { S.prog = [f, key, args]; $('#progBar').style.width = (f * 100).toFixed(1) + '%'; $('#progText').textContent = tx(key, ...args); }
+function setProgress(f, key, ...args) { S.prog = [f, key, args]; $('#progBar').style.width = (f * 100).toFixed(1) + '%'; $('#progText').textContent = (Imp.active ? tx('impPrefix', Imp.total - Imp.queue.length, Imp.total) : '') + tx(key, ...args); }
 
 /* ---------- Navigation ---------- */
 function clearSel() { S.sel = null; S.targets = []; }
@@ -1485,7 +1535,7 @@ function startRetry(i, queue) {
 function retryHtml() {
   const R = S.retry, i = R.i, m = S.moves[i], k = S.cls[i], before = S.evals[i];
   const pos = R.queue.indexOf(i), nextI = R.queue[pos + 1];
-  let h = `<div class="coach-head"><div class="coach-icon" style="background:var(--c-great)">↺</div><div style="min-width:0"><div class="coach-title">${tx('retryTitle')}</div>
+  let h = `<div class="coach-head"><div class="coach-icon" style="background:var(--c-great)">↺</div><div style="min-width:0"><div class="coach-title">${S.puzzle ? tx('puzN', S.puzzle.pos + 1, S.puzzle.ids.length) : tx('retryTitle')}</div>
     <div class="coach-sub">${R.queue.length > 1 ? tx('mistakeN', pos + 1, R.queue.length) : ''}${tx('playedInGame', esc(moveLabel(i)), CLS[k.c].label)}</div></div></div>`;
   h += `<p>${tx('toMove', sideName(m.color))}</p>`;
   if (R.msg) h += `<p class="rmsg ${R.msg.kind}">${R.msg.c ? `<span class="ico" style="background:${clsColor(R.msg.c)}">${CLS[R.msg.c].sym}</span>` : ''}<span>${R.msg.text}</span></p>`;
@@ -1495,7 +1545,8 @@ function retryHtml() {
   }
   h += `<div class="rbtns">`;
   if (!R.solved) h += `<button class="btn" type="button" data-retry="hint"${R.hint ? ' disabled' : ''}>${tx('hint')}</button><button class="btn" type="button" data-retry="solve">${tx('showSolution')}</button>`;
-  if (nextI != null) h += `<button class="btn primary" type="button" data-retry="next">${tx('nextMistake')}</button>`;
+  if (S.puzzle && R.solved) h += `<button class="btn primary" type="button" data-retry="pnext">${tx('puzNext')}</button>`;
+  else if (nextI != null) h += `<button class="btn primary" type="button" data-retry="next">${tx('nextMistake')}</button>`;
   else if (R.solved && R.queue.length > 1) h += `<span class="muted" style="align-self:center">${tx('allDone')}</span>`;
   h += `<button class="btn" type="button" data-retry="explain">${tx('backExplain')}</button></div>`;
   return h;
@@ -1530,6 +1581,7 @@ async function retryAttempt(mv, fenAfter) {
   const evTxt = `${fmtEval(before)} → ${fmtEval(after)}`;
   if (['best', 'great', 'brilliant', 'excellent', 'book', 'forced'].includes(k.c)) {
     R.solved = true;
+    puzzleResult(R.tries === 1 && !R.hint);
     R.msg = { kind: 'ok', c: k.c, text: `<b>${esc(mv.san)}</b>: ${CLS[k.c].label}! ${R.tries === 1 ? tx('foundFirst') : tx('foundN', R.tries)} (${evTxt})` };
   } else {
     const r0 = !after.terminal && after.pv && after.pv.length ? playLine(fenAfter, after.pv, 1)[0] : null;
@@ -1545,6 +1597,8 @@ async function retryAttempt(mv, fenAfter) {
 function retryAction(a) {
   const R = S.retry; if (!R) return;
   if (a === 'hint') { R.hint = true; renderBoard(); renderCoach(); }
+  else if (a === 'pnext') nextPuzzle();
+  else if (a === 'solve' && S.puzzle) showPuzzleSolution();
   else if (a === 'solve') {
     const i = R.i;
     openVariation({ startFen: S.fens[i], items: playLine(S.fens[i], S.evals[i].pv, 12), title: tx('solution') }, 1);
@@ -1631,7 +1685,7 @@ $('#graph').addEventListener('click', e => {
   go(Math.round((e.clientX - r.left) / r.width * n));
 });
 document.addEventListener('keydown', e => {
-  if (e.target.closest('textarea,input,select') || !$('#overlay').hidden) { if (e.key === 'Escape') closeLoader(); return; }
+  if (e.target.closest('textarea,input,select') || !$('#overlay').hidden || !$('#trainOverlay').hidden) { if (e.key === 'Escape') { closeLoader(); closeTraining(); } return; }
   if (e.key === 'ArrowLeft') { step(-1); e.preventDefault(); }
   else if (e.key === 'ArrowRight') { step(1); e.preventDefault(); }
   else if (e.key === 'Home') go(0);
@@ -1676,6 +1730,171 @@ document.addEventListener('paste', e => {
   if (e.target.closest('textarea,input')) return;
   const t = (e.clipboardData || window.clipboardData).getData('text');
   if (t && /\d+\.\s*\S/.test(t)) { try { loadGame(t, S.budget); } catch (err) { openLoader(); $('#pgnIn').value = t; showErr(err.message); } }
+});
+
+/* ---------- Training: puzzles from your own mistakes, mistake statistics, lichess import ---------- */
+const PUZZLE_CLS = ['mistake', 'blunder', 'miss'];
+const DAY = 864e5, BOX_DAYS = [1, 3, 7, 21], STATS_GAMES = 20;
+const Imp = { active: false, queue: [], total: 0, msg: null };
+function myNames() { const m = Store.get('me') || {}; return { lichess: (m.lichess || '').trim(), chesscom: (m.chesscom || '').trim() }; }
+function mySide() {
+  const names = Object.values(myNames()).filter(Boolean).map(s => s.toLowerCase());
+  if (names.includes(String(S.headers.White || '').toLowerCase())) return 'w';
+  if (names.includes(String(S.headers.Black || '').toLowerCase())) return 'b';
+  return null;
+}
+/* Endgame: 20 points or less of pieces left (pawns and kings not counted); opening: moves 1-12. */
+function phaseOf(fen) {
+  const P = parseFen(fen); let pieces = 0;
+  for (const sq in P) if (P[sq].type !== 'p') pieces += VAL[P[sq].type];
+  if (pieces <= 20) return 'endgame';
+  return +fen.split(' ')[5] <= 12 ? 'opening' : 'middlegame';
+}
+/* Called once a game's analysis is complete: saves your mistakes as puzzles and the game's statistics. */
+function onAnalyzed() {
+  if (S.headers.GameId) {
+    const imp = Store.get('imported') || [];
+    if (!imp.includes(S.headers.GameId)) { imp.push(S.headers.GameId); Store.set('imported', imp.slice(-300)); }
+  }
+  recordTraining();
+  if (Imp.active) importNext();
+}
+function recordTraining() {
+  const col = mySide();
+  const stats = Store.get('stats') || [];
+  if (!col || stats.some(s => s.g === S.gameKey)) return;
+  const cats = { hanging: 0, miss: 0, mateLost: 0, time: 0, opening: 0, middlegame: 0, endgame: 0 };
+  const puzzles = Store.get('puzzles') || [];
+  let bad = 0;
+  S.moves.forEach((m, i) => {
+    const k = S.cls[i];
+    if (m.color !== col || !k || !PUZZLE_CLS.includes(k.c)) return;
+    bad++;
+    if (hanging(S.fens[i + 1], col).length) cats.hanging++;
+    if (k.c === 'miss') cats.miss++;
+    if (k.tag === 'mateLost') cats.mateLost++;
+    if (S.time && S.time.base && S.time.clocks[i] != null && S.time.clocks[i] < S.time.base * 0.1) cats.time++;
+    cats[phaseOf(S.fens[i])]++;
+    const id = S.gameKey + ':' + i;
+    if (S.evals[i].best && !puzzles.some(p => p.id === id)) {
+      puzzles.push({ id, fen: S.fens[i], uci: S.ucis[i], c: k.c, b: packEval(S.evals[i]), a: packEval(S.evals[i + 1]), w: S.names.w, bk: S.names.b, box: 0, due: Date.now() });
+    }
+  });
+  stats.push({ g: S.gameKey, acc: gameAccuracy(S.fens[0].split(' ')[1])[col], bad, cats });
+  Store.set('stats', stats.slice(-STATS_GAMES));
+  Store.set('puzzles', puzzles.slice(-500));
+}
+function duePuzzles() { const now = Date.now(); return (Store.get('puzzles') || []).filter(p => !p.done && p.due <= now).sort((a, b) => a.due - b.due); }
+function startPuzzles() {
+  const ids = duePuzzles().map(p => p.id);
+  if (!ids.length) return;
+  closeTraining();
+  S.puzzle = { ids, pos: -1, recorded: false };
+  nextPuzzle();
+}
+function nextPuzzle() {
+  const P = S.puzzle; if (!P) return;
+  P.pos++; P.recorded = false;
+  if (P.pos >= P.ids.length) { S.puzzle = null; renderCoach(); openTraining(); return; }
+  const p = (Store.get('puzzles') || []).find(x => x.id === P.ids[P.pos]);
+  if (p) loadPuzzle(p); else nextPuzzle();
+}
+/* A puzzle is a one-move game: the position before your mistake, your move, and the saved evaluations. */
+function loadPuzzle(p) {
+  const c = new Chess(p.fen);
+  const mv = c.move({ from: p.uci.slice(0, 2), to: p.uci.slice(2, 4), promotion: p.uci[4] || undefined });
+  if (!mv) { nextPuzzle(); return; }
+  S.run++; Live.set(null);
+  Object.assign(S, {
+    headers: { White: p.w, Black: p.bk }, moves: [mv], fens: [p.fen, c.fen()], ucis: [p.uci], term: [null, null], time: null,
+    evals: [unpackEval(p.b), unpackEval(p.a)], cls: [], idx: 0, variation: null, retry: null, promo: null, done: true,
+    sel: null, targets: [], opening: [], names: { w: p.w, b: p.bk }, gameKey: 'puzzle:' + p.id,
+  });
+  S.fenIdx = new Map([[S.fens[0], 0], [S.fens[1], 1]]);
+  S.cls[0] = { ...classifyMain(0), c: p.c };
+  setProgress(1, 'puzN', S.puzzle.pos + 1, S.puzzle.ids.length);
+  startRetry(0);
+  renderAll();
+}
+function puzzleResult(ok) {
+  const P = S.puzzle; if (!P || P.recorded) return;
+  P.recorded = true;
+  const list = Store.get('puzzles') || [], p = list.find(x => x.id === P.ids[P.pos]);
+  if (!p) return;
+  if (!ok) { p.box = 0; p.due = Date.now() + DAY; }
+  else if (p.box >= BOX_DAYS.length) p.done = true;
+  else { p.due = Date.now() + BOX_DAYS[p.box] * DAY; p.box++; }
+  Store.set('puzzles', list);
+}
+function showPuzzleSolution() {
+  const R = S.retry, best = S.evals[0].best;
+  if (!R || R.solved || R.busy || !best) return;
+  const c = new Chess(S.fens[0]);
+  const mv = c.move({ from: best.slice(0, 2), to: best.slice(2, 4), promotion: best[4] || 'q' });
+  puzzleResult(false);
+  Object.assign(R, { solved: true, tryFen: c.fen(), tryMv: mv, msg: { kind: 'bad', text: tx('puzSolution', esc(mv.san)) } });
+  renderBoard(); renderEval(); renderCoach();
+}
+async function importLichess() {
+  const name = myNames().lichess;
+  if (!name || Imp.active) return;
+  Imp.msg = ['impFetching']; renderTraining();
+  try {
+    const r = await fetch(`https://lichess.org/api/games/user/${encodeURIComponent(name)}?max=10&perfType=ultraBullet,bullet,blitz,rapid,classical,correspondence&clocks=true&evals=false&opening=false`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const text = (await r.text()).trim(), seen = new Set(Store.get('imported') || []);
+    const fresh = (text ? text.split(/\n\s*\n(?=\[Event )/) : [])
+      .filter(p => { const id = (p.match(/^\[GameId "([^"]+)"\]/m) || [])[1]; return id && !seen.has(id); }).reverse();
+    if (!fresh.length) { Imp.msg = ['impNone']; renderTraining(); return; }
+    Object.assign(Imp, { active: true, queue: fresh, total: fresh.length, msg: ['impQueued', fresh.length] });
+    closeTraining();
+    importNext();
+  } catch (e) { Imp.msg = ['impFail', e.message]; renderTraining(); }
+}
+function importNext() {
+  const pgn = Imp.queue.shift();
+  if (!pgn) { Imp.active = false; Imp.msg = ['impDone', Imp.total]; if (!$('#trainOverlay').hidden) renderTraining(); return; }
+  setTimeout(() => { try { loadGame(pgn, 'normal'); } catch (e) { importNext(); } }, 300);
+}
+function statsHtml(stats) {
+  if (!stats.length) return `<p>${tx('stNone')}</p>`;
+  const bad = stats.reduce((s, x) => s + x.bad, 0), accs = stats.filter(x => x.acc != null);
+  const acc = accs.length ? (accs.reduce((s, x) => s + x.acc, 0) / accs.length).toFixed(1) : '–';
+  const rows = ['hanging', 'miss', 'mateLost', 'time', 'opening', 'middlegame', 'endgame'].map(k => {
+    const v = stats.reduce((s, x) => s + x.cats[k], 0);
+    return `<tr><td>${tx('st_' + k)}</td><td class="num">${v}</td><td class="num">${bad ? Math.round(v / bad * 100) : 0}%</td></tr>`;
+  }).join('');
+  return `<p>${tx('stSummary', stats.length, acc, bad, (bad / stats.length).toFixed(1))}</p>
+    <table class="counts"><thead><tr><th></th><th>${tx('stCount')}</th><th>${tx('stShare')}</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="hint">${tx('stHint')}</p>`;
+}
+function renderTraining() {
+  const me = myNames(), all = Store.get('puzzles') || [], due = duePuzzles().length, learned = all.filter(p => p.done).length;
+  $('#trainBox').innerHTML = `<h2>${tx('trTitle')}</h2>
+    <div class="row"><label class="muted" for="meLichess">${tx('meLichess')}</label><input id="meLichess" type="text" spellcheck="false" autocomplete="off" value="${esc(me.lichess)}">
+      <label class="muted" for="meChesscom">${tx('meChesscom')}</label><input id="meChesscom" type="text" spellcheck="false" autocomplete="off" value="${esc(me.chesscom)}"></div>
+    <p>${tx('meHelp')}</p>
+    <div class="sec"><h3>${tx('impTitle')}</h3><p>${tx('impHelp')}</p>
+      <div class="row"><button class="btn" type="button" data-train="import"${!me.lichess || Imp.active ? ' disabled' : ''}>${tx('impBtn')}</button>${Imp.msg ? `<span class="muted">${tx(...Imp.msg)}</span>` : ''}</div></div>
+    <div class="sec"><h3>${tx('puzTitle')}</h3><p>${tx('puzHelp')}</p>
+      <div class="row"><button class="btn primary" type="button" data-train="puzzles"${!due || Imp.active ? ' disabled' : ''}>${tx('puzStart')}</button><span class="muted">${tx('puzDue', due, all.length, learned)}</span></div></div>
+    <div class="sec"><h3>${tx('stTitle', STATS_GAMES)}</h3>${statsHtml(Store.get('stats') || [])}</div>
+    <div class="row"><span style="flex:1"></span><button class="btn" type="button" data-train="close">${tx('close')}</button></div>`;
+}
+function openTraining() { renderTraining(); $('#trainOverlay').hidden = false; }
+function closeTraining() { $('#trainOverlay').hidden = true; }
+$('#openTraining').onclick = openTraining;
+$('#trainOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeTraining(); });
+$('#trainBox').addEventListener('click', e => {
+  const a = e.target.closest('[data-train]'); if (!a) return;
+  if (a.dataset.train === 'import') importLichess();
+  else if (a.dataset.train === 'puzzles') startPuzzles();
+  else if (a.dataset.train === 'close') closeTraining();
+});
+$('#trainBox').addEventListener('input', e => {
+  if (e.target.id !== 'meLichess' && e.target.id !== 'meChesscom') return;
+  Store.set('me', { lichess: $('#meLichess').value, chesscom: $('#meChesscom').value });
+  $('[data-train="import"]').disabled = !$('#meLichess').value.trim() || Imp.active;
 });
 
 /* ---------- Boot ---------- */

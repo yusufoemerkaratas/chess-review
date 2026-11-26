@@ -8,6 +8,7 @@ Paste a PGN; Stockfish 17.1 analyzes every move on your own computer, nothing is
 - "Try again": find the right move yourself in the positions where you went wrong
 - Thinking-time analysis for PGNs with clock data
 - Accuracy with the lichess formula, a real opening book (lichess chess-openings)
+- Training: puzzles from your own mistakes with spaced repetition (1, 3, 7, 21 days), statistics on your mistake types over the last 20 games, and import of your last 10 lichess games
 - English and Turkish interface (EN/TR switch in the header)
 - Analyses are stored in the browser; after the first visit it also works offline
 
