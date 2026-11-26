@@ -25,6 +25,23 @@ Install on a home server with Docker (nginx, `restart: unless-stopped`, port 808
 deploy/deploy.sh                # default: yusuf@100.122.73.118
 ```
 
+## Browser extension
+
+The `extension/` folder turns the app into an extension for Chrome-family browsers (Chrome, Edge, Brave, Opera) and Firefox.
+On a **finished** lichess.org or chess.com game it shows a "Review" button that opens the game in a new tab.
+No button is shown while a game is in progress, and the review page refuses unfinished games.
+
+```sh
+extension/build.sh              # writes extension/dist/
+```
+
+- Chrome family: open `chrome://extensions`, turn on Developer mode, "Load unpacked", choose `extension/dist`.
+- Firefox: open `about:debugging#/runtime/this-firefox`, "Load Temporary Add-on", choose `extension/dist/manifest.json`
+  (temporary add-ons are removed when Firefox closes). If the button does not appear, allow the extension to access
+  lichess.org and chess.com in its permissions in `about:addons`.
+
+The PGN comes from lichess's game export and from chess.com's public games archive.
+
 ## Files
 
 | File | Purpose |
@@ -36,5 +53,6 @@ deploy/deploy.sh                # default: yusuf@100.122.73.118
 | `openings.json` | Opening book (position digests) |
 | `vendor/chess.min.js` | Move rules (chess.js 0.10.3) |
 | `fonts/` | Inter, Space Grotesk, JetBrains Mono |
+| `extension/` | Browser extension (manifest, content/background/review scripts, icons, build script) |
 
 See `LICENSES.md` for third-party licenses.
